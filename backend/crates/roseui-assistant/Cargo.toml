@@ -1,0 +1,29 @@
+[package]
+name = "roseui-assistant"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+roseui-common = { workspace = true }
+roseui-api-types = { workspace = true }
+roseui-db = { workspace = true }
+roseui-auth = { workspace = true }
+roseui-extension = { workspace = true }
+axum = { workspace = true }
+dirs = { workspace = true }
+include_dir = "0.7"
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+roseui-realtime = { workspace = true }
+tempfile = { workspace = true }
+tower = { workspace = true, features = ["util"] }
+http-body-util = { workspace = true }

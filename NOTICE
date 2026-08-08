@@ -1,0 +1,84 @@
+DoDidDoneUi
+Copyright 2025 AionUi (aionui.com)
+Copyright 2026 DoDidDoneUi 团队
+
+This product is derived from AionUi, which is licensed under the Apache
+License, Version 2.0 (the "License"); you may not use this product except
+in compliance with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+The original AionUi source code is available at:
+    https://github.com/iOfficeAI/AionUi
+
+----------------------------------------------------------------------------
+THIRD-PARTY COMPONENTS (Apache License 2.0)
+
+This project incorporates source code from the following upstream projects,
+both licensed under the Apache License, Version 2.0:
+
+  * AionUi        (frontend, React/TypeScript)  — Copyright 2025 AionUi (aionui.com)
+  * AionCore      (backend,  Rust/Axum)         — Copyright 2025 AionUi (aionui.com)
+
+----------------------------------------------------------------------------
+MODIFICATIONS
+
+The following modifications were made to the original AionUi / AionCore
+codebase for this project:
+
+  * Electron desktop shell removed; pure web deployment (single Rust binary
+    serving the React SPA via rust-embed).
+  * Added `roseui-wiki` crate: Markdown knowledge base with SQLite FTS5,
+    bidirectional links, and Agent-via-MCP read/write.
+  * Added `legacy_handoff` module: Electron-era database migration with
+    dry-run and rollback.
+  * Local identity mode (`--local`) authentication bypass fixed for embedded
+    single-binary operation.
+  * China-market and vertical-industry optimizations (in progress).
+
+Modified files should carry a "Modified by DoDidDoneUi 团队 on <date>" header
+note in addition to the original copyright line.
+
+----------------------------------------------------------------------------
+VENDORED COMPONENT: Rupoo Agent Engine (MIT License)
+
+This project vendors a copy of the Rupoo agent engine inside
+`upstream-AionCore/extern/rupoo` (a subtree copy of
+https://github.com/Steventsang18/rupoo, crate `rupoo`, version 0.6.3). It is
+included as a local path dependency so the build has no external or
+machine-specific path requirements. The vendored copy drops the standalone TUI
+REPL dependencies (ratatui/crossterm/etc.) so the library embeds cleanly into
+the host dependency tree.
+
+Rupoo is licensed under the MIT License:
+
+  Copyright (c) 2026 Steventsang18
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+----------------------------------------------------------------------------
+TRADEMARK NOTICE
+
+"AionUi" and related names, logos, and trademarks are the property of
+aionui.com and are NOT licensed for use by this project. This derivative
+work MUST be distributed under a different name and must not imply
+affiliation with or endorsement by aionui.com.
+
+This NOTICE file is provided in accordance with Section 4(d) of the
+Apache License, Version 2.0.

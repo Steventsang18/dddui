@@ -1,0 +1,83 @@
+[package]
+name = "roseui-ai-agent"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+roseui-auth.workspace = true
+roseui-common.workspace = true
+roseui-db.workspace = true
+roseui-mcp.workspace = true
+roseui-realtime.workspace = true
+roseui-runtime.workspace = true
+roseui-extension.workspace = true
+roseui-api-types.workspace = true
+roseui-team-prompts.workspace = true
+roseui-session.workspace = true
+roseui-process.workspace = true
+roseui-system.workspace = true
+axum.workspace = true
+http.workspace = true
+base64.workspace = true
+tokio.workspace = true
+tokio-tungstenite.workspace = true
+ed25519-dalek.workspace = true
+sha2.workspace = true
+hex.workspace = true
+dirs.workspace = true
+getrandom.workspace = true
+regex.workspace = true
+dashmap.workspace = true
+futures-util.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+which.workspace = true
+aion-agent.workspace = true
+aion-providers.workspace = true
+aion-types.workspace = true
+aion-protocol.workspace = true
+aion-config.workspace = true
+aion-mcp.workspace = true
+uuid.workspace = true
+# Vendored Rupoo agent engine (MIT, Steventsang18), copied into this repo at
+# `extern/rupoo` so the project builds with zero external/local path deps.
+# The engine crate name (`rupoo`) is a build-time dependency label only; all
+# user-visible surfaces are roseui-branded.
+# `default-features = false` drops the standalone REPL's TUI stack (ratatui/
+# crossterm), which carries a tight `unicode-width` pin that conflicts with
+# the `aion-skills` dependency. The engine core (rig-core, llm, tools,
+# mcp) is feature-independent and remains available.
+rupoo = { path = "../../extern/rupoo", default-features = false }
+agent-client-protocol = { version = "2.0.0", features = ["unstable_session_fork", "unstable_end_turn_token_usage"] }
+tokio-util = { version = "0.7", features = ["compat", "codec"] }
+rusqlite.workspace = true
+libc.workspace = true
+
+[features]
+# Enables the `AgentInstance::Mock` variant used by downstream test harnesses
+# (conversation/cron/team/app) to inject trait-object stubs without having to
+# spawn a real agent process. Production builds must NOT turn this on — it
+# introduces a `dyn IAgentTask` branch that defeats the enum's zero-dispatch
+# guarantee.
+test-support = []
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { workspace = true, features = ["full"] }
+tracing-subscriber.workspace = true
+roseui-common.workspace = true
+roseui-extension.workspace = true
+roseui-db.workspace = true
+roseui-process.workspace = true
+uuid.workspace = true
+sqlx.workspace = true
+
+# Integration tests under `tests/` need the `AgentInstance::Mock` variant.
+# Unlike unit tests (which see `cfg(test)` on the library), integration
+# tests compile as separate binaries and must opt in via a feature.
+[[test]]
+name = "agent_types_integration"
+required-features = ["test-support"]
