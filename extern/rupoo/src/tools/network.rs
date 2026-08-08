@@ -1,0 +1,163 @@
+//! HTTP/HTTPS network request tool.
+//!
+//! Uses `reqwest` (with rustls) to perform GET/POST requests.
+//! Security: SSRF protection (localhost blocked), 30s timeout, 5MB body limit.
+//!
+//! # Safety
+//! - Requests to localhost/127.0.0.1 are rejected to prevent SSRF attacks.
+//! - Response body is capped at 5 MB to prevent memory exhaustion.
+//! - Hard 30-second timeout prevents hanging.
+
+use crate::error::{AgentError, AgentResult};
+use crate::http_client::HTTP_CLIENT;
+use crate::task::HttpMethod;
+
+// SafetyContext provides SSRF protection via localhost URL detection
+use crate::safety::SafetyContext;
+
+/// Maximum response body size (5 MB).
+const MAX_RESPONSE_BYTES: usize = 5 * 1024 * 1024;
+
+/// Maximum response text length in output (5000 chars).
+const MAX_OUTPUT_CHARS: usize = 5000;
+
+/// Extract hostname from a URL string.
+fn extract_host(url: &str) -> Option<String> {
+    url.strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+        .and_then(|rest| {
+            // Remove path (first /)
+            let host_port = rest.split('/').next().unwrap_or(rest);
+            // Remove userinfo (user:pass@host → host)
+            let after_at = host_port.rsplit('@').next().unwrap_or(host_port);
+            // Handle IPv6 brackets: [::1]:8080 → [::1]
+            if after_at.starts_with('[') {
+                if let Some(end) = after_at.find(']') {
+                    return Some(after_at[..=end].to_string());
+                }
+            }
+            // Remove port for regular hostnames
+            let hostname = after_at.split(':').next().unwrap_or(after_at);
+            if hostname.is_empty() {
+                None
+            } else {
+                Some(hostname.to_string())
+            }
+        })
+}
+
+/// Execute an HTTP request and return the response.
+pub async fn execute_http_request(
+    url: &str,
+    method: &HttpMethod,
+    body: Option<&str>,
+    headers: Option<&std::collections::HashMap<String, String>>,
+) -> AgentResult<String> {
+    // SSRF protection: block localhost (string-based fast check)
+    if SafetyContext::is_localhost_url(url) {
+        return Err(AgentError::Network(
+            "HTTP request to localhost is blocked for security".into(),
+        ));
+    }
+
+    // SSRF protection: DNS resolution check (prevents DNS rebinding)
+    if let Some(host) = extract_host(url) {
+        if SafetyContext::is_private_host(&host).await {
+            return Err(AgentError::Network(format!(
+                "HTTP request to '{host}' is blocked: resolves to private/local IP (SSRF protection)"
+            )));
+        }
+    }
+
+    let client = HTTP_CLIENT.as_ref();
+
+    let mut req = match method {
+        HttpMethod::GET => client.get(url),
+        HttpMethod::POST => {
+            let r = client.post(url);
+            if let Some(b) = body {
+                r.body(b.to_string())
+            } else {
+                r
+            }
+        }
+    };
+
+    // Apply custom headers
+    if let Some(hdrs) = headers {
+        for (k, v) in hdrs {
+            req = req.header(k.as_str(), v.as_str());
+        }
+    }
+
+    let resp = req.send().await.map_err(|e| {
+        if e.is_timeout() {
+            AgentError::Network("HTTP request timed out after 30s".into())
+        } else {
+            AgentError::Network(format!("HTTP request failed: {e}"))
+        }
+    })?;
+
+    let status_code = resp.status();
+
+    // Body size limit
+    let content = resp
+        .bytes()
+        .await
+        .map_err(|e| AgentError::Network(format!("failed to read response body: {e}")))?;
+
+    if content.len() > MAX_RESPONSE_BYTES {
+        return Err(AgentError::Network(format!(
+            "Response body too large: {} bytes (max {})",
+            content.len(),
+            MAX_RESPONSE_BYTES
+        )));
+    }
+
+    let text = String::from_utf8_lossy(&content);
+    let truncated = crate::signal::compress_output(&text, Some(MAX_OUTPUT_CHARS));
+
+    Ok(format!("HTTP {status_code}\n{truncated}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_localhost_blocked() {
+        let result =
+            execute_http_request("http://localhost:8080/test", &HttpMethod::GET, None, None).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("localhost"));
+    }
+
+    #[tokio::test]
+    async fn test_127_blocked() {
+        let result =
+            execute_http_request("http://127.0.0.1/api", &HttpMethod::GET, None, None).await;
+        assert!(result.is_err());
+    }
+}
+
+#[test]
+fn test_extract_host() {
+    assert_eq!(
+        extract_host("https://example.com/path"),
+        Some("example.com".to_string())
+    );
+    assert_eq!(
+        extract_host("http://example.com:8080/path"),
+        Some("example.com".to_string())
+    );
+    assert_eq!(
+        extract_host("https://user:pass@host.com/path"),
+        Some("host.com".to_string())
+    );
+    assert_eq!(extract_host("ftp://invalid"), None);
+}
+
+#[test]
+fn test_extract_host_ipv6() {
+    assert_eq!(extract_host("http://[::1]/path"), Some("[::1]".to_string()));
+}

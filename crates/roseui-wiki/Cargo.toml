@@ -1,0 +1,27 @@
+[package]
+name = "roseui-wiki"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+roseui-common.workspace = true
+roseui-api-types.workspace = true
+roseui-db.workspace = true
+roseui-auth.workspace = true
+sqlx.workspace = true
+axum.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+sha2.workspace = true
+# Raw-source parsing (read-only ingest, per user 2026-08-04).
+pdf_oxide = "0.3"
+pdf-extract = "0.7"
+zip.workspace = true
+
+[dev-dependencies]
+tower.workspace = true

@@ -1,0 +1,90 @@
+[package]
+name = "roseui-app"
+version.workspace = true
+edition.workspace = true
+exclude = ["data/**"]
+
+[[bin]]
+name = "dodiddoneui"
+path = "src/main.rs"
+
+[features]
+default = ["telegram", "lark", "dingtalk", "weixin"]
+telegram = ["roseui-channel/telegram"]
+lark = ["roseui-channel/lark"]
+dingtalk = ["roseui-channel/dingtalk"]
+weixin = ["roseui-channel/weixin"]
+
+[dependencies]
+roseui-common.workspace = true
+roseui-assets.workspace = true
+roseui-db.workspace = true
+roseui-api-types.workspace = true
+roseui-realtime.workspace = true
+roseui-auth.workspace = true
+roseui-system.workspace = true
+roseui-file.workspace = true
+roseui-office.workspace = true
+roseui-shell.workspace = true
+roseui-ai-agent.workspace = true
+roseui-session.workspace = true
+roseui-mcp.workspace = true
+roseui-conversation.workspace = true
+roseui-extension.workspace = true
+roseui-channel.workspace = true
+roseui-team.workspace = true
+roseui-team-prompts.workspace = true
+roseui-cron.workspace = true
+roseui-project.workspace = true
+roseui-assistant.workspace = true
+roseui-wiki.workspace = true
+roseui-webhost.workspace = true
+roseui-runtime.workspace = true
+roseui-process.workspace = true
+aion-config.workspace = true
+axum.workspace = true
+chrono.workspace = true
+dirs.workspace = true
+tokio.workspace = true
+uuid.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+open.workspace = true
+tracing.workspace = true
+tracing-appender.workspace = true
+tracing-subscriber.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+reqwest.workspace = true
+rmcp = { version = "1.5", features = ["server", "transport-io", "schemars"] }
+sqlx = { workspace = true, features = ["sqlite"] }
+anyhow.workspace = true
+async-trait.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_System_Threading",
+] }
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
+[dev-dependencies]
+roseui-api-types.workspace = true
+roseui-realtime.workspace = true
+# Enable the `AgentInstance::Mock` variant so tests can build fake agents
+# through the trait-object escape hatch without spawning real CLI processes.
+roseui-ai-agent = { workspace = true, features = ["test-support"] }
+base64.workspace = true
+git2.workspace = true
+http-body-util.workspace = true
+rust_xlsxwriter.workspace = true
+sqlx = { workspace = true, features = ["migrate"] }
+tempfile = "3"
+tower = { workspace = true, features = ["util"] }
+tokio-tungstenite.workspace = true
+futures-util.workspace = true
+wiremock = "0.6"

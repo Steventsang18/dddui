@@ -1,0 +1,20 @@
+[package]
+name = "roseui-webhost"
+version.workspace = true
+edition.workspace = true
+build = "build.rs"
+
+[dependencies]
+roseui-common.workspace = true
+axum.workspace = true
+http.workspace = true
+mime_guess.workspace = true
+rust-embed.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+tower.workspace = true
+tower-http = { version = "0.6", features = ["fs", "cors", "trace", "limit"] }
+
+[dev-dependencies]
+http-body-util.workspace = true
+tower = { workspace = true, features = ["util"] }
