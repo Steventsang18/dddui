@@ -14,3 +14,7 @@
 .DS_Store
 .idea/
 .vscode/
+
+# Tooling / build artifacts (never commit)
+.codebuddy/
+backend/crates/roseui-webhost/assets/
