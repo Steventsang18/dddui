@@ -1,0 +1,29 @@
+[package]
+name = "roseui-office"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+roseui-common.workspace = true
+roseui-api-types.workspace = true
+roseui-realtime.workspace = true
+roseui-auth.workspace = true
+roseui-file.workspace = true
+roseui-runtime.workspace = true
+axum.workspace = true
+tokio.workspace = true
+reqwest.workspace = true
+which.workspace = true
+calamine.workspace = true
+sha1.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+dashmap.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+async-trait.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+rust_xlsxwriter.workspace = true
+tokio = { workspace = true, features = ["test-util"] }

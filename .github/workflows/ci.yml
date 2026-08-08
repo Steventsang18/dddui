@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  # NOTE: Do NOT set `RUSTFLAGS: -D warnings` globally — the vendored
+  # `rupoo` engine (MIT, extern/rupoo) carries pre-existing warnings that
+  # are outside this project's quality gate. Clippy below scopes `-D warnings`
+  # to first-party crates only.
+
+jobs:
+  frontend:
+    name: Frontend (lint + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm install
+      - run: npm run lint
+      - run: npm run build
+
+  backend:
+    name: Backend (fmt + clippy + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.95.0"
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: v1-dodiddoneui
+      # 注：上游 AionCore 历史代码未统一 rustfmt，fmt 阶段仅报告不阻断；
+      # 核心质量门为 clippy（-D warnings，仅限本仓 crate）+ nextest。
+      # vendored `rupoo` 引擎不在严格门禁内（属外部 MIT 依赖）。
+      - run: cargo fmt --all -- --check
+        continue-on-error: true
+      - run: cargo clippy --workspace --exclude rupoo -- -D warnings
+      - uses: taiki-e/install-action@nextest
+      - run: cargo nextest run --workspace

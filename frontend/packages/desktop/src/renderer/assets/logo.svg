@@ -1,0 +1,29 @@
+<svg viewBox="0 0 200 200" width="100%" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>DDDUi — Web Icon</title>
+  <desc>Rotated Fan D (Dynamic) — icon only for favicon / web</desc>
+  <defs>
+    <linearGradient id="gw1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="gw2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7C3AED"/>
+      <stop offset="100%" stop-color="#DB2777"/>
+    </linearGradient>
+    <linearGradient id="gw3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#DB2777"/>
+      <stop offset="100%" stop-color="#F97316"/>
+    </linearGradient>
+  </defs>
+  <g transform="rotate(-20 100 100)">
+    <path d="M 100 45 L 100 155 A 55 55 0 0 1 100 45 Z" fill="none" stroke="url(#gw1)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g transform="rotate(0 100 100)">
+    <path d="M 100 45 L 100 155 A 55 55 0 0 1 100 45 Z" fill="none" stroke="url(#gw2)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g transform="rotate(20 100 100)">
+    <path d="M 100 45 L 100 155 A 55 55 0 0 1 100 45 Z" fill="none" stroke="url(#gw3)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <circle cx="100" cy="100" r="5" fill="#6366F1"/>
+  <circle cx="100" cy="100" r="2.5" fill="#FFFFFF"/>
+</svg>

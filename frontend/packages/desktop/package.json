@@ -1,0 +1,6 @@
+{
+  "name": "@roseui/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "RoseUi renderer — React frontend (built with Vite, served by dodiddoneui Rust backend)"
+}

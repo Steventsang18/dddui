@@ -1,0 +1,110 @@
+name: Release
+
+# Build a standalone `dodiddoneui` binary for each platform on every tag push
+# (v*.*.*), then publish them as GitHub Release assets with SHA-256 checksums.
+#
+# Users download the binary from:
+#   https://github.com/Steventsang18/dddui/releases
+# and run:  ./dodiddoneui --port 3080
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: dodiddoneui-linux-x86_64
+            binary: backend/target/release/dodiddoneui
+          - os: macos-latest
+            artifact: dodiddoneui-macos-x86_64
+            binary: backend/target/release/dodiddoneui
+          - os: windows-latest
+            artifact: dodiddoneui-windows-x86_64.exe
+            binary: backend/target/release/dodiddoneui.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build frontend (vite)
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.95.0"
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: v1-dodiddoneui
+          workspaces: backend
+
+      - name: Build backend binary
+        working-directory: backend
+        run: cargo build --release -p roseui-app
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.binary }}
+          if-no-files-found: error
+
+  release:
+    name: Publish Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate checksums
+        working-directory: artifacts
+        run: |
+          mkdir -p out
+          for d in */; do
+            f="${d%/}"
+            cp "$f"/* "out/$f" 2>/dev/null || true
+          done
+          cd out
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        working-directory: artifacts/out
+        run: |
+          gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
+            --title "DoDidDoneUi $TAG" \
+            --notes "预编译单二进制 dodiddoneui（macOS / Windows / Linux）。下载后运行：\`\`./dodiddoneui --port 3080\`\`，浏览器打开 http://127.0.0.1:3080。" \
+            --verify-tag \
+            dodiddoneui-linux-x86_64 \
+            dodiddoneui-macos-x86_64 \
+            dodiddoneui-windows-x86_64.exe \
+            checksums.txt
