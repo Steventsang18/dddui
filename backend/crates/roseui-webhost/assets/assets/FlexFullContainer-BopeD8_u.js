@@ -1,1 +1,0 @@
-import{j as s}from"./vendor-react-BBeMfEpA.js";import{n as a}from"./index-NlN9zNgo.js";const n=e=>s.jsx("div",{className:a("flex-1 relative min-h-0",e.className),children:s.jsx("div",{className:a("absolute size-full",e.containerClassName),children:e.children})});export{n as F};
