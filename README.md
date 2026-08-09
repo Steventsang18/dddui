@@ -1,6 +1,6 @@
 # DoDidDoneUi — 本地垂直行业 Agent 平台
 
-> 基于 [AionUi](https://github.com/iOfficeAI/AionUi) (Apache-2.0) 深度改造的本地化、垂直行业向 Agent 编排平台。单 Rust 二进制 + 浏览器，数据不出本机。
+> 本地化、垂直行业向的 Agent 编排平台，单 Rust 二进制 + 浏览器，数据不出本机。基于 Apache-2.0 许可的上游开源代码修改而来（署名见许可证章节）。
 
 ## 项目定位
 
@@ -10,26 +10,16 @@
 - **垂直行业适配**：针对细分市场的领域知识库、工作流、合规要求做定向优化
 - **本地优先**：纯 Web 形态，无桌面客户端，单人即可部署
 
-## 与原项目的关系
 
-| 维度 | 原 AionUi | 本项目 |
-|------|-----------|--------|
-| 形态 | Electron 桌面应用 | 单 Rust 二进制 + 浏览器 |
-| 定位 | 通用 AI 聊天界面 | 垂直行业解决方案平台 |
-| 市场 | 全球 | 中国市场的深度本地化 |
-| 品牌 | AionUi (aionui.com) | DoDidDoneUi（独立命名，无隶属关系） |
-
-**本项目的代码基于 AionUi 修改，但名称、商标、品牌均独立于 aionui.com，不暗示任何官方关联。**
-
-## 许可证
+## 许可与来源
 
 - 原始代码：Apache License 2.0 — Copyright 2025 AionUi (aionui.com)
 - 本项目修改与新代码：Apache License 2.0 — Copyright 2026 DoDidDoneUi 团队
 - 内置 Rupoo agent 引擎：MIT License — Copyright 2026 Steventsang18（见 [`NOTICE`](./NOTICE)）
 
-详见 [`NOTICE`](./NOTICE) 与上游 [`LICENSE`](./upstream-AionUi/LICENSE) / [`LICENSE`](./upstream-AionCore/LICENSE)。
+详见 [`NOTICE`](./NOTICE) 与 [`LICENSE`](./LICENSE)（上游副本见 [`frontend/LICENSE`](./frontend/LICENSE) / [`backend/LICENSE`](./backend/LICENSE)）。
 
-根据 Apache 2.0 第 6 条，**"AionUi" 名称与商标不随许可证授予**，本项目以独立名称分发。
+本项目基于 Apache-2.0 许可的上游代码修改而来，以**独立名称 DoDidDoneUi** 分发；根据 Apache 2.0 第 6 条，上游名称与商标不随许可证授予，本项目不暗示与上游的任何关联。
 
 ## 快速开始
 
@@ -37,10 +27,10 @@
 
 ```bash
 # 终端 1 — 后端
-cd upstream-AionCore && cargo run -- --port 3080 --host 127.0.0.1 --identity-mode owner
+cd backend && cargo run -- --port 3080 --host 127.0.0.1 --identity-mode owner
 
 # 终端 2 — 前端（Vite dev server，HMR）
-cd upstream-AionUi && npm install && npm run dev
+cd frontend && npm install && npm run dev
 # 浏览器打开 http://127.0.0.1:5173
 ```
 
@@ -52,10 +42,10 @@ cd upstream-AionUi && npm install && npm run dev
 
 ```bash
 ./scripts/build-binary.sh --release
-# 产物：upstream-AionCore/target/release/dodiddoneui
+# 产物：backend/target/release/dodiddoneui
 
 # 启动（默认绑定 127.0.0.1，首启自动打开浏览器）
-./upstream-AionCore/target/release/dodiddoneui --port 3080 --host 127.0.0.1
+./backend/target/release/dodiddoneui --port 3080 --host 127.0.0.1
 # 浏览器访问 http://127.0.0.1:3080
 ```
 
@@ -77,3 +67,5 @@ dodiddoneui (单 Rust 二进制)
 ## 免责声明
 
 本项目按 "AS IS" 提供，不含任何明示或暗示担保。使用前请遵守所在行业的合规要求（数据隐私、执业资质等）。
+
+<!-- keep-test -->
