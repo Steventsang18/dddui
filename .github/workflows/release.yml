@@ -23,7 +23,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             artifact: dodiddoneui-linux-x86_64
             binary: backend/target/release/dodiddoneui
           - os: macos-latest
@@ -63,6 +63,12 @@ jobs:
       - name: Build backend binary
         working-directory: backend
         run: cargo build --release -p roseui-app
+
+      - name: Check GLIBC baseline (Linux)
+        if: runner.os == 'Linux'
+        working-directory: backend
+        run: |
+          bash scripts/check-glibc-baseline.sh target/release/dodiddoneui GLIBC_2.34
 
       - name: Upload binary
         uses: actions/upload-artifact@v4

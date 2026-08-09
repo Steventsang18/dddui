@@ -209,3 +209,9 @@ incremental = false
 debug = "line-tables-only"
 split-debuginfo = "unpacked"
 incremental = false
+
+# Release binary: strip symbols + thin LTO for smaller, self-contained distribution
+[profile.release]
+strip = "symbols"
+lto = "thin"
+codegen-units = 1
