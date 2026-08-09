@@ -2,6 +2,8 @@
 
 > 本地化、垂直行业向的 Agent 编排平台，单 Rust 二进制 + 浏览器，数据不出本机。基于 Apache-2.0 许可的上游开源代码修改而来（署名见许可证章节）。
 
+📘 英文版文档：[`README.en.md`](./README.en.md)
+
 ## 项目定位
 
 本项目**不是通用型 AI 聊天平台**，而是面向**特定垂直行业**（法律、教育、医疗、金融等）的本地化 Agent 解决方案。核心特征：
@@ -10,20 +12,67 @@
 - **垂直行业适配**：针对细分市场的领域知识库、工作流、合规要求做定向优化
 - **本地优先**：纯 Web 形态，无桌面客户端，单人即可部署
 
+## 为什么选 DoDidDoneUi？
 
-## 许可与来源
+- **数据不出本机**：单个 Rust 二进制直接在浏览器里跑完整应用，没有云后端（除你用自己的 Key 连接的模型 API）。
+- **垂直行业就绪**：领域知识库、工作流与合规护栏是为特定市场调优的，而非"通用聊天"一刀切。
+- **本地优先、零桌面客户端**：纯 Web 形态——不依赖 Tauri、不依赖 Electron、不打包 `.exe`/`.dmg` 安装包。一个人用笔记本就能部署。
 
-- 原始代码：Apache License 2.0 — Copyright 2025 AionUi (aionui.com)
-- 本项目修改与新代码：Apache License 2.0 — Copyright 2026 DoDidDoneUi 团队
-- 内置 Rupoo agent 引擎：MIT License — Copyright 2026 Steventsang18（见 [`NOTICE`](./NOTICE)）
+## 功能详介
 
-详见 [`NOTICE`](./NOTICE) 与 [`LICENSE`](./LICENSE)（上游副本见 [`frontend/LICENSE`](./frontend/LICENSE) / [`backend/LICENSE`](./backend/LICENSE)）。
+### 🤖 多 Agent 编排
+把多个专职 Agent 串联、协同，解决复杂的多步骤任务。每个 Agent 可被赋予角色、工具与知识范围，再组合成工作流。
 
-本项目基于 Apache-2.0 许可的上游代码修改而来，以**独立名称 DoDidDoneUi** 分发；根据 Apache 2.0 第 6 条，上游名称与商标不随许可证授予，本项目不暗示与上游的任何关联。
+### 📚 垂直行业知识库（Wiki）
+内置面向领域的 Markdown 知识库：
+- 基于 SQLite **FTS5** 的全文检索（快、确定性、离线可用）。
+- 笔记间的**双向链接**与 typed edges，可构建知识图谱。
+- 通过 MCP `wiki_*` 工具由 Agent 读/写/搜，也可在界面里直接管理。
+- 拖入 `pdf` / `docx` / `md` / `txt`——由纯 Rust 本地解析为汇总页 + 可检索切片。原始文件永不被修改。
+
+### 🔌 MCP（模型上下文协议）
+通过 MCP 服务器扩展工具与外部数据源。既可用内置 wiki MCP 工具，也可接入你自己的。
+
+### 💬 对话
+在简洁的对话界面中与模型、Agent 交流。若尚未配置任何模型，应用会给出友好引导而非报错。
+
+### 🗂 文件与 Office
+通过 Agent 直接处理本机文件与 Office 文档——Agent 可读取、编辑并基于你的本地文件推理。
+
+### ⏰ 定时任务
+设置周期性或定时任务，让 Agent / 工作流自动运行。
+
+### 👥 团队（规划中）
+团队协作层在规划中。当前单主控模式下打开即用，无登录墙。
+
+### 📦 单二进制、免客户端
+React 前端在编译期经 `rust-embed` 嵌入 Rust 二进制，运行期同源托管。无需独立 Web 服务器、无需桌面客户端、无需额外目录。
 
 ## 快速开始
 
-### 开发模式（热更新）
+### 方式 A — 直接运行（推荐大多数用户）
+
+想要一个前端已内嵌的生产形态单二进制：
+
+```bash
+# 1. 构建单二进制（前端会自动内嵌）
+./scripts/build-binary.sh --release
+#    产物：backend/target/release/dodiddoneui
+
+# 2. 启动（默认绑定 127.0.0.1，首次启动自动打开浏览器）
+./backend/target/release/dodiddoneui --port 3080 --host 127.0.0.1
+
+# 3. 浏览器打开
+#    http://127.0.0.1:3080
+```
+
+就这么简单——不需要 Node，不需要额外服务器，二进制包揽一切。
+
+> **首次配置**：在能聊天或使用 Agent 之前，请到 **设置 → 模型** 配置一个国产主流大模型（如 DeepSeek）并粘贴你的 API Key。配置后对话 / Agent 功能即会启用。
+
+### 方式 B — 开发模式（热更新）
+
+如果你是开发者，想在改前端时实时刷新：
 
 ```bash
 # 终端 1 — 后端
@@ -31,27 +80,18 @@ cd backend && cargo run -- --port 3080 --host 127.0.0.1 --identity-mode owner
 
 # 终端 2 — 前端（Vite dev server，HMR）
 cd frontend && npm install && npm run dev
-# 浏览器打开 http://127.0.0.1:5173
+#    浏览器打开 http://127.0.0.1:5173
 ```
 
-> 首次使用需在「模型」设置中配置国产大模型（如 DeepSeek）并粘贴 API Key，方可使用对话 / Agent 能力。
+> 首次模型配置同方式 A：先在 **设置 → 模型** 配置模型，再使用对话 / Agent 功能。
 
-### 生产模式（单二进制，前端内嵌）
+### 方式 C — 伺服已构建的前端目录（高级）
 
-一键构建脚本会：构建前端 → 拷贝产物到后端内嵌目录 → 编译 `dodiddoneui`：
+如果你已有前端 `dist`，想跳过内嵌副本：
 
 ```bash
-./scripts/build-binary.sh --release
-# 产物：backend/target/release/dodiddoneui
-
-# 启动（默认绑定 127.0.0.1，首启自动打开浏览器）
-./backend/target/release/dodiddoneui --port 3080 --host 127.0.0.1
-# 浏览器访问 http://127.0.0.1:3080
+./backend/target/release/dodiddoneui --port 3080 --host 127.0.0.1 --static-dir <前端dist目录路径>
 ```
-
-> 前端 `vite build` 产物在编译期经 `rust-embed` 内嵌进 `dodiddoneui` 二进制，
-> 运行期同源托管，无需任何桌面客户端或额外目录。开发期也可用
-> `dodiddoneui --static-dir <前端dist目录>` 跳过内嵌、直接伺服本地构建产物。
 
 ## 架构
 
@@ -63,6 +103,16 @@ dodiddoneui (单 Rust 二进制)
 
 浏览器 ←→ REST /api/* + WebSocket /ws  ←→ dodiddoneui（同源）
 ```
+
+## 许可与来源
+
+- 原始代码：Apache License 2.0 — Copyright 2025 AionUi (aionui.com)
+- 本项目修改与新代码：Apache License 2.0 — Copyright 2026 DoDidDoneUi 团队
+- 内置 Rupoo agent 引擎：MIT License — Copyright 2026 Steventsang18（见 [`NOTICE`](./NOTICE)）
+
+详见 [`NOTICE`](./NOTICE) 与 [`LICENSE`](./LICENSE)（上游副本见 [`frontend/LICENSE`](./frontend/LICENSE) / [`backend/LICENSE`](./backend/LICENSE)）。
+
+本项目基于 Apache-2.0 许可的上游代码修改而来，以**独立名称 DoDidDoneUi** 分发；根据 Apache 2.0 第 6 条，上游名称与商标不随许可证授予，本项目不暗示与上游的任何关联。
 
 ## 免责声明
 
