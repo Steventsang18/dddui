@@ -50,6 +50,6 @@ resources/                      # 文档与品牌资源
 
 - 原始代码：Apache License 2.0 — Copyright 2025 AionUi (aionui.com)
 - 本项目修改与新代码：Apache License 2.0 — Copyright 2026 DoDidDoneUi 团队
-- 见仓库根 [`LICENSE`](./LICENSE) 与 [`NOTICE`](./NOTICE)
+- 见仓库根 [`LICENSE`](./LICENSE) 与 [根 `NOTICE`](../NOTICE)（上游版权与署名以 NOTICE 为准）
 
 根据 Apache 2.0 第 6 条，"AionUi" 名称与商标不随许可证授予，本前端以独立名称 **DDDUI** 分发。
