@@ -1,6 +1,6 @@
 # DoDidDoneUi 前端 (DDDUI)
 
-> 本地优先、垂直行业向的多 Agent 编排平台前端。基于 [AionUi](https://github.com/iOfficeAI/AionUi) (Apache-2.0) 深度改造，独立品牌 **DDDUI**，不暗示与上游的任何官方关联。
+> 本地优先、垂直行业向的多 Agent 编排平台前端。基于 Apache-2.0 许可的上游开源代码修改而来，独立品牌 **DDDUI**（署名见许可证章节）。
 
 本仓库是 **DoDidDoneUi 的纯前端**（React 19 + TypeScript + UnoCSS + Arco Design）。它作为静态资源被后端 `dodiddoneui`（Rust 单二进制）在编译期通过 `rust-embed` 内嵌，运行期由同一二进制同源托管，**无需任何桌面客户端**。
 
