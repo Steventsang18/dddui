@@ -139,7 +139,7 @@ fn sanitize(rel: &str) -> PathBuf {
 mod tests {
     use super::*;
     use axum::http::Request;
-    use http_body_util::BodyExt;
+    // (unused import removed)
     use tower::ServiceExt;
 
     #[tokio::test]

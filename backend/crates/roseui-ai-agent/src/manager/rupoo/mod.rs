@@ -437,6 +437,7 @@ fn build_confirmation(req: &rupoo::approval::ApprovalRequest) -> Confirmation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::protocol::events::ToolCallStatus;
     use translate::EventTranslator;
 
     #[test]
