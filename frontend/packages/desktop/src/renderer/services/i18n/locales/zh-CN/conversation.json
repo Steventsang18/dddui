@@ -1,7 +1,8 @@
 {
   "welcome": {
     "title": "Hi，今天有什么安排？",
-    "placeholder": "发消息、上传文件、打开文件夹、创建定时任务，或输入 / 唤起命令...",
+    "subtitle": "没想好也没关系——先把想法丢过来，我们一步步来。",
+    "placeholder": "想从哪开始？直接告诉我，或者上传个文件让我看看。",
     "linkFolder": "打开文件夹",
     "newConversation": "新会话",
     "selectModel": "选择模型",

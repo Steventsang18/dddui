@@ -206,7 +206,7 @@ const Landing: React.FC = () => {
           <div className='rose-tech-item'>
             <Robot theme='filled' size={20} />
             <div>
-              <h4>rupoo 工程化内核</h4>
+              <h4>Rust 工程化内核</h4>
               <p>理解工程结构、框架约定与跨文件接口，改动后自验编译测试。</p>
             </div>
           </div>
@@ -248,7 +248,7 @@ const Landing: React.FC = () => {
 
       <footer className='rose-footer'>
         <span>
-          DoDidDoneUi · 本地优先的多 Agent 编排平台 · 派生自 AionUi (Apache-2.0)
+          DoDidDoneUi · 本地优先的多 Agent 编排平台 · 派生自 Rupoo、AionUi (Apache-2.0)
         </span>
       </footer>
     </div>

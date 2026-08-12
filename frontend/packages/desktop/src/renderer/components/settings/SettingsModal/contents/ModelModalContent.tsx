@@ -105,7 +105,14 @@ const isModelEnabled = (platform: IProvider, model: string): boolean => {
   return platform.model_enabled[model] !== false;
 };
 
-const ModelModalContent: React.FC = () => {
+type ModelModalContentProps = {
+  /** Override the page header title i18n key (defaults to the Model tab label). */
+  titleKey?: string;
+  /** Override the page header description i18n key (defaults to settings.modelDescription). */
+  descriptionKey?: string;
+};
+
+const ModelModalContent: React.FC<ModelModalContentProps> = ({ titleKey, descriptionKey }) => {
   const { t } = useTranslation();
   const viewMode = useSettingsViewMode();
   const isPageMode = viewMode === 'page';
@@ -382,8 +389,8 @@ const ModelModalContent: React.FC = () => {
       {isPageMode ? (
         <SettingsPageHeader
           data-testid='model-header'
-          title={t('settings.model')}
-          description={t('settings.modelDescription', {
+          title={t(titleKey ?? 'settings.model')}
+          description={t(descriptionKey ?? 'settings.modelDescription', {
             defaultValue: 'Configure LLM providers and API keys for use across all assistants.',
           })}
           actions={headerActions}

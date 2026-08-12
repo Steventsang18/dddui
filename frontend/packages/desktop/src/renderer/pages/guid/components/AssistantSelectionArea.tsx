@@ -254,6 +254,7 @@ const AssistantSelectionArea: React.FC<AssistantSelectionAreaProps> = ({
 
   return (
     <div ref={containerRef} className='mt-18px mb-16px w-full'>
+      <p className='mb-10px text-center text-13px text-t-secondary'>{t('guid.selectAssistantHint')}</p>
       <div className='flex w-full justify-center'>
         <div
           ref={barRef}

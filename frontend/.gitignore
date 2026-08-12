@@ -167,7 +167,8 @@ ${env.ELECTRON_CACHE}/
 # Agent Kit
 .agent
 .codebuddy/
-wiki/
+# Wiki runtime data only (never ignore the pages/wiki source components)
+wiki/data/
 
 # Local design docs and screenshots
 desdoc/

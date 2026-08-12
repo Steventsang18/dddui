@@ -1,6 +1,10 @@
 /* DoDidDoneUi Landing Page — 仿 LobsterAI 产品落地页，玫瑰金品牌色 + Arco 变量 */
+/* NOTE: index.html 内联样式对 html/body/#root 设了 overflow:hidden（桌面工作台
+   模板防双滚动条）。Landing 是整页滚动型页面且为裸路由（不在工作台布局内），
+   因此自身必须作为滚动容器：height:100vh + overflow-y:auto，与全局锁共存。 */
 .rose-landing {
-  min-height: 100vh;
+  height: 100vh;
+  overflow-y: auto;
   background: var(--color-bg-1);
   color: var(--color-text-1);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;

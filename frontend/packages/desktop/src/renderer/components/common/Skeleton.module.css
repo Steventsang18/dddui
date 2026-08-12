@@ -1,0 +1,76 @@
+/* Theme-aware skeleton primitives. Base tone tracks Arco tokens so it works in
+   light/dark without hard-coded colors. */
+
+.skeleton {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  background-color: var(--color-fill-2);
+  border-radius: 6px;
+}
+
+.rounded {
+  border-radius: 12px;
+}
+
+/* Default block shape; the base .skeleton already provides the rect look. */
+.rect {
+}
+
+.text {
+  height: 14px;
+  border-radius: 4px;
+}
+
+.circle {
+  border-radius: 50%;
+}
+
+/* Shimmer sweep: subtle highlight glides left -> right. */
+.shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-bg-2) 55%, transparent),
+    transparent
+  );
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  min-height: 60vh;
+  box-sizing: border-box;
+}
+
+.pageBody {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Respect users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .shimmer::after {
+    animation: none;
+  }
+}

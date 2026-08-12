@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import AppLoader from '@renderer/components/layout/AppLoader';
 import { useAuth } from '@renderer/hooks/context/AuthContext';
+import { useProvidersQuery } from '@renderer/hooks/agent/useModelProviderList';
 import { TEAM_MODE_ENABLED } from '@/common/config/constants';
 const Conversation = React.lazy(() => import('@renderer/pages/conversation'));
 const Guid = React.lazy(() => import('@renderer/pages/guid'));
@@ -17,6 +18,7 @@ const SystemSettings = React.lazy(() => import('@renderer/pages/settings/SystemS
 const WebuiSettings = React.lazy(() => import('@renderer/pages/settings/WebuiSettings'));
 const PetSettings = React.lazy(() => import('@renderer/pages/settings/PetSettings'));
 const ExtensionSettingsPage = React.lazy(() => import('@renderer/pages/settings/ExtensionSettingsPage'));
+const CredentialsSettings = React.lazy(() => import('@renderer/pages/settings/CredentialsSettings'));
 const LoginPage = React.lazy(() => import('@renderer/pages/login'));
 const ComponentsShowcase = React.lazy(() => import('@renderer/pages/TestShowcase'));
 const ScheduledTasksPage = React.lazy(() => import('@renderer/pages/cron/ScheduledTasksPage'));
@@ -25,6 +27,7 @@ const TeamIndex = React.lazy(() => import('@renderer/pages/team'));
 const WikiListPage = React.lazy(() => import('@renderer/pages/wiki/WikiListPage'));
 const WikiDetailPage = React.lazy(() => import('@renderer/pages/wiki/WikiDetailPage'));
 const Landing = React.lazy(() => import('@renderer/pages/Landing'));
+const Setup = React.lazy(() => import('@renderer/pages/Setup'));
 
 const withRouteFallback = (Component: React.LazyExoticComponent<React.ComponentType>) => (
   <Suspense fallback={<AppLoader />}>
@@ -40,6 +43,15 @@ const CapabilitiesRedirect: React.FC = () => {
   const { search } = useLocation();
   const tab = new URLSearchParams(search).get('tab');
   return <Navigate to={tab === 'tools' ? '/settings/tools' : '/settings/skills'} replace />;
+};
+
+const FirstRunGate: React.FC = () => {
+  // Reuses the shared PROVIDERS_SWR_KEY + PROVIDERS_SWR_OPTIONS so the
+  // providers cache is identical to every other consumer (no duplicate fetch).
+  const { data: providers, isLoading } = useProvidersQuery();
+  if (isLoading) return <AppLoader />;
+  const hasProvider = Array.isArray(providers) && providers.length > 0;
+  return <Navigate to={hasProvider ? '/guid' : '/setup'} replace />;
 };
 
 const ProtectedLayout: React.FC<{ layout: React.ReactElement }> = ({ layout }) => {
@@ -67,14 +79,16 @@ const PanelRoute: React.FC<{ layout: React.ReactElement }> = ({ layout }) => {
           element={status === 'authenticated' ? <Navigate to='/guid' replace /> : withRouteFallback(LoginPage)}
         />
         <Route path='/landing' element={withRouteFallback(Landing)} />
+        <Route path='/setup' element={withRouteFallback(Setup)} />
+        <Route index element={<FirstRunGate />} />
           <Route element={<ProtectedLayout layout={layout} />}>
-          <Route index element={<Navigate to='/landing' replace />} />
           <Route path='/guid' element={withRouteFallback(Guid)} />
           <Route path='/conversation/:id' element={withRouteFallback(Conversation)} />
           <Route
             path='/team/:id'
             element={TEAM_MODE_ENABLED ? withRouteFallback(TeamIndex) : <Navigate to='/guid' replace />}
           />
+          <Route path='/settings/credentials' element={withRouteFallback(CredentialsSettings)} />
           <Route path='/settings/model' element={withRouteFallback(ModeSettings)} />
           <Route path='/assistants' element={withRouteFallback(AssistantSettings)} />
           {/* Assistants moved out of Settings to a top-level entry; keep a redirect

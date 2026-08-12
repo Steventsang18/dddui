@@ -317,7 +317,7 @@ const GuidPage: React.FC = () => {
   );
 
   // Typewriter placeholder
-  const typewriterPlaceholder = useTypewriterPlaceholder(t('conversation.welcome.placeholder'));
+  const typewriterPlaceholder = useTypewriterPlaceholder(t('conversation.welcome.placeholder', { defaultValue: '想从哪开始？直接告诉我，或者上传个文件让我看看。' }));
   const selectedAssistantRecord = useMemo(() => {
     if (!selectedAssistantId) return undefined;
     const selectedId = agentSelection.selectedAssistantId;
@@ -671,7 +671,10 @@ const GuidPage: React.FC = () => {
       <div ref={guidContainerRef} className={styles.guidContainer}>
         <div className={styles.guidLayout}>
           <div className={styles.heroHeader}>
-            <p className='text-2xl font-semibold mb-0 text-0 text-center'>{t('conversation.welcome.title')}</p>
+            <div className='flex flex-col items-center'>
+              <p className='text-2xl font-semibold mb-0 text-0 text-center'>{t('conversation.welcome.title')}</p>
+              <p className='text-sm text-t-secondary text-center mt-8px animate-fade-in'>{t('conversation.welcome.subtitle', { defaultValue: '没想好也没关系——先把想法丢过来，我们一步步来。' })}</p>
+            </div>
           </div>
 
           <AssistantSelectionArea
@@ -689,7 +692,7 @@ const GuidPage: React.FC = () => {
             onPaste={guidInput.onPaste}
             onFocus={guidInput.handleTextareaFocus}
             onBlur={guidInput.handleTextareaBlur}
-            placeholder={typewriterPlaceholder || t('conversation.welcome.placeholder')}
+            placeholder={typewriterPlaceholder || t('conversation.welcome.placeholder', { defaultValue: '想从哪开始？直接告诉我，或者上传个文件让我看看。' })}
             isInputActive={guidInput.isInputFocused}
             isFileDragging={guidInput.isFileDragging}
             activeBorderColor={activeBorderColor}

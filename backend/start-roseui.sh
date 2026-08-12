@@ -1,15 +1,24 @@
 #!/usr/bin/env bash
-# Start the RoseUi backend (rosecore) with a FIXED data directory and a STABLE
+# Start the dodiddoneui backend with a FIXED data directory and a STABLE
 # JWT secret so stored provider API keys survive restarts.
 #
 # Why this matters:
-#   rosecore defaults `--data-dir` to the RELATIVE path "data", which resolves
+#   dodiddoneui defaults `--data-dir` to the RELATIVE path "data", which resolves
 #   against the current working directory. Launching from different folders
 #   created different roseui-backend.db files, making provider config (and its
 #   encrypted API keys) appear to "vanish" after a rebuild/restart. Pinning an
-#   absolute data dir + a constant JWT_SECRET eliminates that drift: the
-#   encryption key is always derived from the same secret, so existing API-key
-#   ciphertext keeps decrypting.
+#   absolute data dir eliminates that drift: the DB is always at the same path,
+#   so existing API-key ciphertext keeps decrypting.
+#
+# Secret handling (SECURITY):
+#   The JWT secret that encrypts stored provider API keys is NEVER hardcoded
+#   here. It is resolved at runtime in priority order:
+#     1. $JWT_SECRET env var (sourced from .env below if present)
+#     2. the persisted `jwt_secret` column in the system user row (auto-generated
+#        on first launch and reused thereafter)
+#   If neither is set, dodiddoneui generates a random secret, persists it to the
+#   DB, and reuses it on every later start. Never commit a real secret — keep it
+#   in backend/.env (gitignored). See backend/.env.example for the template.
 #
 # Usage:
 #   ./start-roseui.sh          # start in background (owner mode, 127.0.0.1:3080)
@@ -24,9 +33,15 @@ BIN="$SCRIPT_DIR/target/debug/dodiddoneui"
 PID_FILE="$SCRIPT_DIR/.dodiddoneui.pid"
 LOG_FILE="$SCRIPT_DIR/dodiddoneui.log"
 
-# Stable JWT secret — MUST stay constant. It is the source for the API-key
-# encryption key; rotating it makes all stored API keys undecryptable.
-export JWT_SECRET="***REMOVED_JWT_SECRET***"
+# Load JWT secret from backend/.env if present (gitignored — never committed).
+# If absent, dodiddoneui auto-generates and persists a random secret on first
+# launch, then reuses it on every subsequent start. See .env.example.
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$SCRIPT_DIR/.env"
+  set +a
+fi
 
 mkdir -p "$DATA_DIR"
 
@@ -77,7 +92,11 @@ if [[ -f "$PID_FILE" ]]; then
 fi
 
 echo "Starting dodiddoneui (data-dir=$DATA_DIR)..."
-nohup "$BIN" --port 3080 --host 127.0.0.1 --identity-mode owner --data-dir "$DATA_DIR" \
+# Serve the freshly built frontend from disk instead of the embedded build.
+# (Embedded assets only refresh by recompiling the Rust binary; the built
+# renderer dist lives at frontend/packages/desktop/src/renderer/dist.)
+STATIC_DIR="$SCRIPT_DIR/../frontend/packages/desktop/src/renderer/dist"
+nohup "$BIN" --port 3080 --host 127.0.0.1 --identity-mode owner --data-dir "$DATA_DIR" --static-dir "$STATIC_DIR" \
   > "$LOG_FILE" 2>&1 &
 echo $! > "$PID_FILE"
 disown

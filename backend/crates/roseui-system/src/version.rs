@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 use crate::error::SystemError;
 
-const DEFAULT_REPO: &str = "iOfficeAI/RoseUi";
+const DEFAULT_REPO: &str = "Steventsang18/dddui";
 const GITHUB_API_BASE: &str = "https://api.github.com";
 
 /// Service that checks GitHub Releases for available updates.

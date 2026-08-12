@@ -1,0 +1,52 @@
+/* DDDUI 品牌字标 — 全局复用组件
+   主题感知：渐变用 --aou-* 色阶（与 Setup 门禁屏同源），随 light/dark 切换。
+   用 CSS Modules 防全局污染；SVG 以相对父盒 60% 缩放，size 控制方块尺寸。 */
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: linear-gradient(135deg, var(--aou-5), var(--aou-7));
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--aou-6) 40%, transparent);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.name {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--color-text-1);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* 尺寸：仅控制方块盒子，SVG 相对缩放 */
+.sm .mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.md .mark {
+  width: 36px;
+  height: 36px;
+}
+
+.lg .mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+}
+
+.lg .name {
+  font-size: 20px;
+}

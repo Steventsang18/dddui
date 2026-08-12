@@ -1,7 +1,8 @@
 {
   "welcome": {
     "title": "Hi, what's your plan for today?",
-    "placeholder": "Send a message, upload files, open a folder, create a scheduled task, or type / for commands...",
+    "placeholder": "Where would you like to start? Just tell me, or upload a file for me to look at.",
+    "subtitle": "No idea yet? That's fine — just throw your thoughts in and we'll figure it out together.",
     "linkFolder": "Open Folder",
     "newConversation": "New Chat",
     "selectModel": "Select Model",
