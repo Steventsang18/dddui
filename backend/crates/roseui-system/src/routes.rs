@@ -4,6 +4,7 @@ use axum::Router;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Extension, Json, Path, Query, State};
 use axum::http::StatusCode;
+use std::sync::Arc;
 use axum::routing::{delete, get, post};
 
 use roseui_api_types::{
@@ -15,6 +16,7 @@ use roseui_api_types::{
 };
 use roseui_auth::CurrentUser;
 use roseui_common::ApiError;
+use roseui_db::IIndustryTemplateRepository;
 
 use crate::client_pref::ClientPrefService;
 use crate::diagnostics::FeedbackDiagnosticsService;
@@ -37,6 +39,8 @@ pub struct SystemRouterState {
     pub version_check_service: VersionCheckService,
     pub runtime_prepare_service: RuntimePrepareService,
     pub feedback_diagnostics_service: FeedbackDiagnosticsService,
+    /// Repository for industry-template selection + company overrides.
+    pub industry_template_repo: Arc<dyn IIndustryTemplateRepository>,
 }
 
 impl From<SystemError> for ApiError {
@@ -92,6 +96,14 @@ pub fn system_routes(state: SystemRouterState) -> Router {
         .route("/api/system/check-update", post(check_update))
         .route("/api/system/ensure-node-runtime", post(ensure_node_runtime))
         .route("/api/system/diagnostics/feedback-report", get(get_feedback_diagnostics))
+        // Industry solution templates: select a template + company override.
+        .route("/api/industry-templates", get(list_industry_templates))
+        .route(
+            "/api/industry-template",
+            get(get_industry_template)
+                .put(update_industry_template)
+                .delete(delete_industry_template),
+        )
         .with_state(state)
 }
 
@@ -127,6 +139,114 @@ async fn get_feedback_diagnostics(
         .await
         .map_err(ApiError::from)?;
     Ok(Json(ApiResponse::ok(diagnostics)))
+}
+
+// ===========================================================================
+// Industry solution template handlers
+// ===========================================================================
+
+/// Lightweight metadata describing a built-in industry template for the picker.
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct IndustryTemplateMeta {
+    id: String,
+    label: String,
+    /// Short human-readable intent derived from the template's system prompt.
+    description: String,
+    allowed_tools: Vec<String>,
+    excluded_tools: Vec<String>,
+    approval_policy: String,
+}
+
+/// The user's currently-selected template + company override (if any).
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct IndustryTemplateSelection {
+    template_id: String,
+    override_json: String,
+}
+
+/// Request body for `PUT /api/industry-template`.
+#[derive(Debug, serde::Deserialize)]
+struct UpdateIndustryTemplateRequest {
+    template_id: String,
+    #[serde(default)]
+    override_json: String,
+}
+
+/// List built-in industry templates (immutable baselines) for the picker.
+async fn list_industry_templates(
+    State(_state): State<SystemRouterState>,
+) -> Result<Json<ApiResponse<Vec<IndustryTemplateMeta>>>, ApiError> {
+    let metas = rupoo::industry_template::builtin()
+        .into_iter()
+        .map(|t| {
+            let description = t
+                .prompt
+                .lines()
+                .find(|l| !l.trim().is_empty())
+                .unwrap_or(&t.label)
+                .trim()
+                .to_owned();
+            IndustryTemplateMeta {
+                id: t.id,
+                label: t.label,
+                description,
+                allowed_tools: t.allowed_tools,
+                excluded_tools: t.excluded_tools,
+                approval_policy: t.approval_policy,
+            }
+        })
+        .collect();
+    Ok(Json(ApiResponse::ok(metas)))
+}
+
+/// Get the current user's selected template + company override.
+async fn get_industry_template(
+    State(state): State<SystemRouterState>,
+    Extension(user): Extension<CurrentUser>,
+) -> Result<Json<ApiResponse<Option<IndustryTemplateSelection>>>, ApiError> {
+    let cfg = state
+        .industry_template_repo
+        .get_config(&user.id)
+        .await
+        .map_err(|e| ApiError::Internal(format!("industry template load failed: {e}")))?;
+    let selection = cfg.map(|c| IndustryTemplateSelection {
+        template_id: c.template_id,
+        override_json: c.override_json,
+    });
+    Ok(Json(ApiResponse::ok(selection)))
+}
+
+/// Upsert the current user's template selection + company override.
+async fn update_industry_template(
+    State(state): State<SystemRouterState>,
+    Extension(user): Extension<CurrentUser>,
+    Json(req): Json<UpdateIndustryTemplateRequest>,
+) -> Result<Json<ApiResponse<IndustryTemplateSelection>>, ApiError> {
+    if req.template_id.trim().is_empty() {
+        return Err(ApiError::BadRequest("template_id is required".into()));
+    }
+    let saved = state
+        .industry_template_repo
+        .upsert_config(&user.id, &req.template_id, &req.override_json)
+        .await
+        .map_err(|e| ApiError::Internal(format!("industry template save failed: {e}")))?;
+    Ok(Json(ApiResponse::ok(IndustryTemplateSelection {
+        template_id: saved.template_id,
+        override_json: saved.override_json,
+    })))
+}
+
+/// Clear the current user's template selection.
+async fn delete_industry_template(
+    State(state): State<SystemRouterState>,
+    Extension(user): Extension<CurrentUser>,
+) -> Result<Json<ApiResponse<()>>, ApiError> {
+    state
+        .industry_template_repo
+        .delete_config(&user.id)
+        .await
+        .map_err(|e| ApiError::Internal(format!("industry template delete failed: {e}")))?;
+    Ok(Json(ApiResponse::success()))
 }
 
 async fn update_settings(

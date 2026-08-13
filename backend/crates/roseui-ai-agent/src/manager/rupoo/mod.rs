@@ -16,6 +16,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
 use roseui_common::{AgentKillReason, AgentType, Confirmation, ConversationStatus, TimestampMs, now_ms};
+use rupoo::agent::ToolExecutor;
 use roseui_api_types::{AgentModeResponse, ConfigOptionConfirmation, GetConfigOptionsResponse, SetConfigOptionResponse, SlashCommandItem};
 use tokio::sync::broadcast;
 use tokio::sync::mpsc;
@@ -46,6 +47,9 @@ pub struct RupooAgentManager {
     started: Mutex<Option<ConversationStatus>>,
     /// Interactive approval gate shared with the engine's tool executor.
     approval_gate: Arc<rupoo::approval::ApprovalGate>,
+    /// Industry-template system prompt (highest precedence) captured at build
+    /// time, replayed on every turn via `agent_chat(system_prompt_override)`.
+    industry_system_prompt: Option<String>,
     /// Pending confirmation cards surfaced to the frontend.
     confirmations: Arc<RwLock<Vec<Confirmation>>>,
     /// Host-side receiver for approval notices from the engine. Wrapped in
@@ -86,18 +90,41 @@ impl RupooAgentManager {
         );
 
         // ── Tool executor: reuse Rupoo's built-in jail-aware tool set ──
-        let safety = rupoo::safety::SafetyContext::default();
-        let approval_tool_names = safety.approval_required_tools();
         // Interactive approval gate: high-risk tools pause for user confirmation.
         let (approval_gate, approval_rx) = rupoo::approval::ApprovalGate::new();
         let approval_gate = Arc::new(approval_gate);
-        let tool_executor = Arc::new(rupoo::mcp::McpToolExecutor::with_safety_and_approval(
-            safety,
-            approval_gate.clone(),
-        ));
+
+        // When an industry template is active, derive the tool executor (and its
+        // embedded SafetyContext) from the *resolved* SafetySection + AgentProfile.
+        // This makes template policies actually bite: command jail, approval
+        // policy, and tool allow/exclude scoping all flow into the engine.
+        let (tool_executor, safety, approval_tool_names): (
+            Arc<dyn ToolExecutor>,
+            rupoo::safety::SafetyContext,
+            std::collections::HashSet<String>,
+        ) = if let (Some(section), Some(profile)) =
+            (config.industry_safety.as_ref(), config.industry_profile.as_ref())
+        {
+            let exec = rupoo::mcp::McpToolExecutor::with_safety_section(
+                section,
+                Some(profile),
+                Some(approval_gate.clone()),
+            );
+            let safety = exec.safety().clone();
+            let names = safety.approval_required_tools();
+            (Arc::new(exec), safety, names)
+        } else {
+            let safety = rupoo::safety::SafetyContext::default();
+            let names = safety.approval_required_tools();
+            let exec = Arc::new(rupoo::mcp::McpToolExecutor::with_safety_and_approval(
+                safety.clone(),
+                approval_gate.clone(),
+            ));
+            (exec, safety, names)
+        };
 
         // ── Engine assembly ──
-        let agent = rupoo::agent::Agent::new(repo, tool_executor);
+        let agent = rupoo::agent::Agent::with_safety(repo, tool_executor, safety);
         let gateway = rupoo::llm::LlmGateway::with_jail(llm_config, std::path::PathBuf::from(&workspace));
         let agent = Arc::new(agent.with_llm(gateway));
 
@@ -117,6 +144,7 @@ impl RupooAgentManager {
             cancelled: Arc::new(AtomicBool::new(false)),
             started: Mutex::new(None),
             approval_gate,
+            industry_system_prompt: config.industry_system_prompt.clone(),
             confirmations: Arc::new(RwLock::new(Vec::new())),
             approval_rx: Mutex::new(Some(approval_rx)),
             approval_drain: Mutex::new(None),
@@ -230,7 +258,7 @@ impl IAgentTask for RupooAgentManager {
         let history_snapshot = self.history.lock().unwrap().clone();
 
         let result = agent
-            .agent_chat(&user_message, &history_snapshot, max_turns, safe_mode, on_event, None, config_system_prompt(&data))
+            .agent_chat(&user_message, &history_snapshot, max_turns, safe_mode, on_event, None, self.industry_system_prompt.clone())
             .await;
 
         // The approval drain stays alive across turns (it owns the engine's
@@ -384,13 +412,6 @@ fn map_provider(label: &str) -> rupoo::llm::LlmProvider {
         "ollama" => rupoo::llm::LlmProvider::Ollama,
         _ => rupoo::llm::LlmProvider::OpenAI,
     }
-}
-
-/// Pull a one-shot system-prompt override from the message payload when the
-/// caller supplied one (RoseUi routes preset rules through config, not the
-/// message, so this is normally `None`).
-fn config_system_prompt(_data: &SendMessageData) -> Option<String> {
-    None
 }
 
 /// Build a frontend confirmation card for a pending Rupoo tool approval.

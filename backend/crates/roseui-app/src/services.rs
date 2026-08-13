@@ -12,11 +12,12 @@ use roseui_auth::{CookieConfig, JwtService, QrTokenStore, resolve_jwt_secret};
 use roseui_common::OnConversationDelete;
 use roseui_conversation::{ConversationService, runtime_state::ConversationRuntimeStateService};
 use roseui_db::{
-    Database, IAcpSessionRepository, IAgentMetadataRepository, IConversationRepository, IMcpServerRepository,
-    IProjectStore, ISkillRepository, IUserRepository, SqliteAcpSessionRepository, SqliteAgentMetadataRepository,
-    SqliteAssistantDefinitionRepository, SqliteAssistantOverlayRepository, SqliteAssistantPreferenceRepository,
-    SqliteConversationRepository, SqliteMcpServerRepository, SqliteProjectStore, SqliteProviderRepository,
-    SqliteSkillRepository, SqliteUserRepository,
+    Database, IAcpSessionRepository, IAgentMetadataRepository, IConversationRepository, IIndustryTemplateRepository,
+    IMcpServerRepository, IProjectStore, ISkillRepository, IUserRepository, SqliteAcpSessionRepository,
+    SqliteAgentMetadataRepository, SqliteAssistantDefinitionRepository, SqliteAssistantOverlayRepository,
+    SqliteAssistantPreferenceRepository, SqliteConversationRepository, SqliteIndustryTemplateRepository,
+    SqliteMcpServerRepository, SqliteProjectStore, SqliteProviderRepository, SqliteSkillRepository,
+    SqliteUserRepository,
 };
 use roseui_project::ProjectService;
 use roseui_realtime::{BroadcastEventBus, WebSocketManager};
@@ -162,6 +163,8 @@ impl AppServices {
         // so the agent gets the operator's tools (ELECTRON-1JG fix).
         let mcp_server_repo: Arc<dyn IMcpServerRepository> =
             Arc::new(SqliteMcpServerRepository::new(database.pool().clone()));
+        let industry_template_repo: Arc<dyn IIndustryTemplateRepository> =
+            Arc::new(SqliteIndustryTemplateRepository::new(database.pool().clone()));
 
         let agent_metadata_repo: Arc<dyn IAgentMetadataRepository> =
             Arc::new(SqliteAgentMetadataRepository::new(database.pool().clone()));
@@ -243,6 +246,7 @@ impl AppServices {
             broadcaster: event_bus.clone(),
             backend_binary_path: backend_binary_path.clone(),
             mcp_server_repo: Some(mcp_server_repo),
+            industry_template_repo: Some(industry_template_repo),
             session_spawner,
         });
 

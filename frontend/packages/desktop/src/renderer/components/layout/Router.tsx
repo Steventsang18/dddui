@@ -12,8 +12,8 @@ const AssistantSettings = React.lazy(() => import('@renderer/pages/settings/Assi
 const SkillsSettings = React.lazy(() => import('@renderer/pages/settings/SkillsSettings/SkillsHubSettings'));
 const SkillDetailPage = React.lazy(() => import('@renderer/pages/settings/SkillsSettings/SkillDetailPage'));
 const ToolsSettings = React.lazy(() => import('@renderer/pages/settings/ToolsSettings'));
+const IndustryTemplateSettings = React.lazy(() => import('@renderer/pages/settings/IndustryTemplateSettings'));
 const AppearanceSettings = React.lazy(() => import('@renderer/pages/settings/AppearanceSettings'));
-const ModeSettings = React.lazy(() => import('@renderer/pages/settings/ModeSettings'));
 const SystemSettings = React.lazy(() => import('@renderer/pages/settings/SystemSettings'));
 const WebuiSettings = React.lazy(() => import('@renderer/pages/settings/WebuiSettings'));
 const PetSettings = React.lazy(() => import('@renderer/pages/settings/PetSettings'));
@@ -89,7 +89,8 @@ const PanelRoute: React.FC<{ layout: React.ReactElement }> = ({ layout }) => {
             element={TEAM_MODE_ENABLED ? withRouteFallback(TeamIndex) : <Navigate to='/guid' replace />}
           />
           <Route path='/settings/credentials' element={withRouteFallback(CredentialsSettings)} />
-          <Route path='/settings/model' element={withRouteFallback(ModeSettings)} />
+          {/* Model settings merged into Credentials center — redirect legacy deep links. */}
+          <Route path='/settings/model' element={<Navigate to='/settings/credentials' replace />} />
           <Route path='/assistants' element={withRouteFallback(AssistantSettings)} />
           {/* Assistants moved out of Settings to a top-level entry; keep a redirect
               so old deep links / back-nav still land on the new page. */}
@@ -101,6 +102,7 @@ const PanelRoute: React.FC<{ layout: React.ReactElement }> = ({ layout }) => {
           <Route path='/settings/skills/import-history' element={withRouteFallback(SkillsSettings)} />
           <Route path='/settings/skills/detail/:skillName' element={withRouteFallback(SkillDetailPage)} />
           <Route path='/settings/tools' element={withRouteFallback(ToolsSettings)} />
+          <Route path='/settings/industry' element={withRouteFallback(IndustryTemplateSettings)} />
           {/* Legacy routes — the previous combined "Capabilities" page is now two pages. */}
           <Route path='/settings/capabilities' element={<CapabilitiesRedirect />} />
           <Route

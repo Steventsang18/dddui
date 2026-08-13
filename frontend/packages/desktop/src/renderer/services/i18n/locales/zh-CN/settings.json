@@ -601,7 +601,7 @@
   "channels.slackDesc": "通过 Slack 与 DoDidDoneUi 助手对话",
   "channels.discordTitle": "Discord",
   "channels.discordDesc": "通过 Discord 与 DoDidDoneUi 助手对话",
-  "channels.larkTitle": "Lark",
+  "channels.larkTitle": "Feishu",
   "channels.larkDesc": "通过 Lark 与 DoDidDoneUi 助手对话",
   "channels.dingtalkTitle": "钉钉",
   "channels.dingtalkDesc": "通过钉钉与 DoDidDoneUi 助手对话",
@@ -1307,5 +1307,23 @@
     "solveWithButler": "找管家排查"
   },
   "providerIdConflict": "Provider ID 已存在，请重试。",
-  "autoInjectedSkillsHint": "每次对话都会自动加载，无需手动启用；由智能体自行决定何时调用。"
+  "autoInjectedSkillsHint": "每次对话都会自动加载，无需手动启用；由智能体自行决定何时调用。",
+  "industry": "行业模板",
+  "industryTemplate": {
+    "title": "行业解决方案模板",
+    "subtitle": "选择垂直行业模板，定制助手的系统提示词、可用工具与安全策略。公司覆盖可进一步收紧约束。",
+    "none": "暂无可用行业模板",
+    "pleaseSelect": "请选择一个模板",
+    "invalidJson": "公司覆盖不是合法的 JSON",
+    "saved": "行业模板已保存",
+    "cleared": "行业模板已清除",
+    "companyOverride": "公司覆盖（JSON）",
+    "overrideHint": "可选。JSON 会合并到模板基线上，例如 {\"excluded_tools\":[\"shell_exec\"],\"approval_policy\":\"always\"}。锁定的安全底线无法被放宽。",
+    "disabledTools": "已禁用",
+    "approveAll": "所有工具需审批",
+    "approveDangerous": "仅危险工具需审批",
+    "clear": "清除选择",
+    "docButton": "查看操作指引",
+    "docTitle": "行业模板操作指引"
+  }
 }

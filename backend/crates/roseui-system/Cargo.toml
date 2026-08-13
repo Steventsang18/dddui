@@ -10,6 +10,7 @@ roseui-db.workspace = true
 roseui-api-types.workspace = true
 roseui-realtime.workspace = true
 roseui-runtime.workspace = true
+rupoo = { path = "../../extern/rupoo", default-features = false }
 axum.workspace = true
 async-trait.workspace = true
 serde.workspace = true

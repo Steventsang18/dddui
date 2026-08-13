@@ -157,6 +157,16 @@ pub struct AionrsResolvedConfig {
     pub runtime_env: Vec<(String, String)>,
     /// Prompt dump directory when development prompt dumps are enabled.
     pub prompt_dump_dir: Option<PathBuf>,
+    /// Resolved industry-template system prompt (highest precedence: template
+    /// baseline + company override + session AllowOnce). None when no template
+    /// is active for this conversation.
+    pub industry_system_prompt: Option<String>,
+    /// Resolved industry-template safety section, when a template is active.
+    /// Drives command jail + approval policy in the Rupoo engine.
+    pub industry_safety: Option<rupoo::config::SafetySection>,
+    /// Resolved industry-template agent profile, when a template is active.
+    /// Drives tool allow/exclude scoping in the Rupoo engine.
+    pub industry_profile: Option<rupoo::config::AgentProfile>,
 }
 
 #[cfg(test)]

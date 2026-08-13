@@ -593,7 +593,7 @@
   "channels.slackDesc": "Chat with DoDidDoneUi assistant via Slack",
   "channels.discordTitle": "Discord",
   "channels.discordDesc": "Chat with DoDidDoneUi assistant via Discord",
-  "channels.larkTitle": "Lark",
+  "channels.larkTitle": "Feishu",
   "channels.larkDesc": "Chat with DoDidDoneUi assistant via Lark",
   "channels.dingtalkTitle": "DingTalk",
   "channels.dingtalkDesc": "Chat with DoDidDoneUi assistant via DingTalk",
@@ -1298,5 +1298,23 @@
     "solveWithButler": "Ask the Butler"
   },
   "providerIdConflict": "Provider ID already exists. Please try again.",
-  "autoInjectedSkillsHint": "Loaded automatically into every conversation — no need to enable them; the agent decides when to use them."
+  "autoInjectedSkillsHint": "Loaded automatically into every conversation — no need to enable them; the agent decides when to use them.",
+  "industry": "Industry Template",
+  "industryTemplate": {
+    "title": "Industry Solution Template",
+    "subtitle": "Choose a vertical template to tailor the assistant’s system prompt, allowed tools, and safety policy. A company override can further tighten constraints.",
+    "none": "No industry templates available",
+    "pleaseSelect": "Please select a template",
+    "invalidJson": "Company override is not valid JSON",
+    "saved": "Industry template saved",
+    "cleared": "Industry template cleared",
+    "companyOverride": "Company Override (JSON)",
+    "overrideHint": "Optional. JSON merged over the template baseline — e.g. {\"excluded_tools\":[\"shell_exec\"],\"approval_policy\":\"always\"}. Locked safety bottom-lines cannot be relaxed.",
+    "disabledTools": "Disabled",
+    "approveAll": "Approve all tools",
+    "approveDangerous": "Approve dangerous only",
+    "clear": "Clear selection",
+    "docButton": "View guide",
+    "docTitle": "Industry Template Guide"
+  }
 }

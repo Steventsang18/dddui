@@ -20,8 +20,8 @@ use roseui_db::{
     IProviderRepository, SqliteAcpSessionRepository, SqliteAgentMetadataRepository,
     SqliteAssistantDefinitionRepository, SqliteAssistantOverlayRepository, SqliteAssistantOverrideRepository,
     SqliteAssistantPreferenceRepository, SqliteAssistantRepository, SqliteClientPreferenceRepository,
-    SqliteConversationRepository, SqliteFeedbackDiagnosticsRepository, SqliteProviderRepository,
-    SqliteRemoteAgentRepository, SqliteSettingsRepository,
+    SqliteConversationRepository, SqliteFeedbackDiagnosticsRepository, SqliteIndustryTemplateRepository,
+    SqliteProviderRepository, SqliteRemoteAgentRepository, SqliteSettingsRepository,
 };
 use roseui_extension::{
     AssistantRuleDispatcher, ExtensionRegistry, ExtensionRouterState, ExtensionStateStore, ExternalPathsManager,
@@ -429,8 +429,9 @@ pub fn build_system_state(services: &AppServices) -> SystemRouterState {
         version_check_service: VersionCheckService::new(http_client, env!("CARGO_PKG_VERSION").to_owned()),
         runtime_prepare_service: RuntimePrepareService::new(services.event_bus.clone()),
         feedback_diagnostics_service: FeedbackDiagnosticsService::new(Arc::new(
-            SqliteFeedbackDiagnosticsRepository::new(pool),
+            SqliteFeedbackDiagnosticsRepository::new(pool.clone()),
         )),
+        industry_template_repo: Arc::new(SqliteIndustryTemplateRepository::new(pool)),
     }
 }
 

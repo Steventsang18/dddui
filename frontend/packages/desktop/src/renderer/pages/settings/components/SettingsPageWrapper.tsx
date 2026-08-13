@@ -14,10 +14,11 @@ import {
   Computer,
   Earth,
   Info,
+  Key,
   Lightning,
-  LinkCloud,
   Puzzle,
   Robot,
+  Shield,
   System,
   Toolkit,
 } from '@icon-park/react';
@@ -39,7 +40,12 @@ type TranslateFn = (key: string, options?: { defaultValue?: string }) => string;
 
 export function getBuiltinSettingsNavItems(isDesktop: boolean, t: TranslateFn): NavItem[] {
   const builtinMap: Record<string, NavItem> = {
-    model: { id: 'model', label: t('settings.model'), icon: <LinkCloud theme='outline' size='16' />, path: 'model' },
+    credentials: {
+      id: 'credentials',
+      label: t('settings.credentials', { defaultValue: 'Credentials' }),
+      icon: <Key theme='outline' size='16' />,
+      path: 'credentials',
+    },
     assistants: {
       id: 'assistants',
       label: t('settings.assistants', { defaultValue: 'Assistants' }),
@@ -63,6 +69,12 @@ export function getBuiltinSettingsNavItems(isDesktop: boolean, t: TranslateFn): 
       label: t('settings.tools', { defaultValue: 'Tools' }),
       icon: <Toolkit theme='outline' size='16' />,
       path: 'tools',
+    },
+    industry: {
+      id: 'industry',
+      label: t('settings.industry', { defaultValue: 'Industry Template' }),
+      icon: <Shield theme='outline' size='16' />,
+      path: 'industry',
     },
     appearance: {
       id: 'appearance',

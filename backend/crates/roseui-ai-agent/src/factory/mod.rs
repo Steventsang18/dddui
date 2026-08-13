@@ -8,7 +8,7 @@ mod context;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use roseui_db::{IMcpServerRepository, IProviderRepository};
+use roseui_db::{IMcpServerRepository, IProviderRepository, IIndustryTemplateRepository};
 use roseui_realtime::EventBroadcaster;
 use futures_util::FutureExt;
 
@@ -44,6 +44,10 @@ pub struct AgentFactoryDeps {
     /// run through `SessionAgentTask` (direct-CLI) instead of the ACP manager, so
     /// the spawner is unconditionally wired — there is no fallback to the ACP path.
     pub session_spawner: Arc<dyn roseui_process::Spawner>,
+    /// Repository for industry-template selection + company overrides.
+    /// When present, the built aionrs agent consumes the resolved template
+    /// profile (tool scoping), safety section (jail + approval), and system prompt.
+    pub industry_template_repo: Option<Arc<dyn IIndustryTemplateRepository>>,
 }
 
 /// Build a production agent factory that dispatches to concrete agent types.

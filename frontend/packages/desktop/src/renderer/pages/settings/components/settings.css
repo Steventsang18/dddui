@@ -49,3 +49,14 @@
     font-weight: 500;
   }
 }
+
+/* Industry template picker cards */
+.industry-template-card {
+  border: 1px solid var(--border-base);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.industry-template-card--active {
+  border-color: rgb(var(--primary-6));
+  box-shadow: 0 0 0 2px rgba(var(--primary-6), 0.15);
+}

@@ -13,6 +13,7 @@ import {
   Lightning,
   LinkCloud,
   Puzzle,
+  Shield,
   Speed,
   System,
   Toolkit,
@@ -27,10 +28,10 @@ import { getSiderTooltipProps } from '@/renderer/utils/ui/siderTooltip';
 /** Builtin settings tab IDs in display order (must match router paths). */
 export const BUILTIN_TAB_IDS = [
   'credentials',
-  'model',
   'agent',
   'skills',
   'tools',
+  'industry',
   'appearance',
   'webui',
   'pet',
@@ -86,7 +87,6 @@ const SettingsSider: React.FC<{ collapsed?: boolean; tooltipEnabled?: boolean }>
     // Build builtin items
     const builtinMap: Record<string, SiderItem> = {
       credentials: { id: 'credentials', label: t('settings.credentials'), icon: <Key />, path: 'credentials' },
-      model: { id: 'model', label: t('settings.model'), icon: <LinkCloud />, path: 'model' },
       agent: {
         id: 'agent',
         label: t('settings.agents', { defaultValue: 'Agents' }),
@@ -104,6 +104,12 @@ const SettingsSider: React.FC<{ collapsed?: boolean; tooltipEnabled?: boolean }>
         label: t('settings.tools', { defaultValue: 'Tools' }),
         icon: <Toolkit />,
         path: 'tools',
+      },
+      industry: {
+        id: 'industry',
+        label: t('settings.industry', { defaultValue: 'Industry Template' }),
+        icon: <Shield />,
+        path: 'industry',
       },
       appearance: { id: 'appearance', label: t('settings.appearancePanel'), icon: <Computer />, path: 'appearance' },
       webui: {
