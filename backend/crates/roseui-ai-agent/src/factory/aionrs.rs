@@ -133,6 +133,13 @@ pub(super) async fn build(
 
     let session_directory = deps.data_dir.join("aionrs-sessions");
 
+    // ── Industry template resolution ──
+    // Pull the user's selected template + company override, then resolve it into
+    // the runtime profile / safety section / system prompt. `None` when the user
+    // has not selected a template (engine falls back to built-in defaults).
+    let (industry_system_prompt, industry_safety, industry_profile) =
+        resolve_industry_template(&deps, &ctx.user_id).await;
+
     let _resume_session = {
         let session_mgr = SessionManager::new(session_directory.clone(), 100);
         match session_mgr.load(&ctx.conversation_id) {
@@ -199,6 +206,9 @@ pub(super) async fn build(
         bedrock_config,
         runtime_env: ctx.runtime_env,
         prompt_dump_dir: crate::dev_prompt_dump::dump_dir_for_data_dir(&deps.data_dir, deps.dump_prompts),
+        industry_system_prompt,
+        industry_safety,
+        industry_profile,
     };
 
     if let Some(system_prompt) = config.system_prompt.as_deref()
@@ -236,6 +246,48 @@ pub(super) async fn build(
     // ── roseui: route default kernel through the built-in Rupoo engine ──
     let agent = RupooAgentManager::new(ctx.conversation_id.clone(), ctx.workspace.clone(), config)?;
     Ok(AgentInstance::Rupoo(Arc::new(agent)))
+}
+
+/// Resolve the active industry template for a user into the runtime triple that
+/// the Rupoo engine consumes: `(system_prompt, SafetySection, AgentProfile)`.
+///
+/// Returns `(None, None, None)` when no template is selected (or the repository
+/// is not wired), so the engine keeps its built-in defaults. Template failures
+/// are logged and downgraded to "no template" rather than breaking the agent —
+/// a misconfigured compliance template should never brick the chat.
+async fn resolve_industry_template(
+    deps: &AgentFactoryDeps,
+    user_id: &str,
+) -> (Option<String>, Option<rupoo::config::SafetySection>, Option<rupoo::config::AgentProfile>) {
+    let Some(repo) = deps.industry_template_repo.as_ref() else {
+        return (None, None, None);
+    };
+
+    let Ok(Some(cfg)) = repo.get_config(user_id).await else {
+        debug!(user_id, "No industry template selected for user");
+        return (None, None, None);
+    };
+
+    match rupoo::industry_template::resolve(&cfg.template_id, &cfg.override_json) {
+        Ok((profile, section)) => {
+            info!(
+                user_id,
+                template_id = %cfg.template_id,
+                "Resolved industry template"
+            );
+            let prompt = profile.system_prompt.clone();
+            (prompt, Some(section), Some(profile))
+        }
+        Err(e) => {
+            warn!(
+                user_id,
+                template_id = %cfg.template_id,
+                error = %e,
+                "Industry template resolve failed; falling back to built-in defaults"
+            );
+            (None, None, None)
+        }
+    }
 }
 
 /// Map RoseUi DB platform/protocol settings to the aionrs provider identifier.

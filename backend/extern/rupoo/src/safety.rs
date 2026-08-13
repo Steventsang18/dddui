@@ -141,6 +141,10 @@ pub struct SafetyContext {
     /// Reserved for integration with the approval policy system.
     #[allow(dead_code)]
     auto_approve_tools: HashSet<String>,
+    /// Commands explicitly permitted under default-deny (least-privilege) mode.
+    /// When non-empty, only commands matching this allowlist may run, with the
+    /// forbidden list still taking precedence. Empty = allow-by-default.
+    allowed_commands: HashSet<String>,
     /// Directories the agent is allowed to read/write.
     allowed_paths: Vec<PathBuf>,
     /// Default timeout for external command execution.
@@ -155,6 +159,7 @@ impl Default for SafetyContext {
             forbidden_commands: DEFAULT_FORBIDDEN.clone(),
             approval_required_tools: DEFAULT_APPROVAL.clone(),
             auto_approve_tools: DEFAULT_AUTO_APPROVE.clone(),
+            allowed_commands: HashSet::new(),
             allowed_paths: vec![std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))],
             default_timeout: Duration::from_secs(30),
             browser_path: None,
@@ -165,8 +170,10 @@ impl Default for SafetyContext {
 impl SafetyContext {
     /// Create a SafetyContext from configuration, merging with built-in defaults.
     ///
-    /// Config values extend (not replace) the hardcoded defaults, so removing a
-    /// default-forbidden command requires an explicit allowlist (future feature).
+    /// Config values extend (not replace) the hardcoded defaults. Setting
+    /// `safety.allowed_commands` to a non-empty list enables default-deny
+    /// (least-privilege) mode: only those commands may run, with the forbidden
+    /// list still taking precedence.
     pub fn from_config(config: &crate::config::RupooConfig) -> Self {
         let mut ctx = SafetyContext::default();
 
@@ -187,6 +194,87 @@ impl SafetyContext {
         // Extend auto-approve tools from config
         for tool in &config.safety.auto_approve_tools {
             ctx.auto_approve_tools.insert(tool.to_string());
+        }
+
+        // Populate the command allowlist. Non-empty enables default-deny mode.
+        for cmd in &config.safety.allowed_commands {
+            let c = cmd.trim().to_lowercase();
+            if !c.is_empty() {
+                ctx.allowed_commands.insert(c);
+            }
+        }
+
+        ctx
+    }
+
+    /// Build a [`SafetyContext`] from an industry-template [`SafetySection`].
+    ///
+    /// The section is the *resolved* output of `rupoo::industry_template::resolve`,
+    /// already merged with the template baseline, company override, and locked
+    /// bottom-lines. Mapping rules:
+    /// - `forbidden_commands` is additive on top of the built-in `DEFAULT_FORBIDDEN`.
+    /// - `allowed_commands` (non-empty) enables default-deny least-privilege mode;
+    ///   the forbidden set always takes precedence.
+    /// - `approval_policy == "always"` makes every non-auto-approve tool require
+    ///   approval; `"dangerous_only"` keeps the default dangerous-tool set.
+    /// - `jail_root` (when not the placeholder ".") is prepended to `allowed_paths`.
+    pub fn from_section(section: &crate::config::SafetySection) -> Self {
+        let mut ctx = SafetyContext::default();
+
+        // Forbidden: built-in defaults + template/override/lock union.
+        for cmd in &section.forbidden_commands {
+            let c = cmd.trim().to_lowercase();
+            if !c.is_empty() {
+                ctx.forbidden_commands.insert(c);
+            }
+        }
+
+        // Auto-approve tools: defaults + template-provided ones.
+        for tool in &section.auto_approve_tools {
+            if !tool.is_empty() {
+                ctx.auto_approve_tools.insert(tool.to_string());
+            }
+        }
+
+        // Approval set.
+        match section.approval_policy.as_str() {
+            "always" => {
+                // Move every non-auto-approve tool into the approval-required set.
+                let auto = ctx.auto_approve_tools.clone();
+                ctx.approval_required_tools = DEFAULT_APPROVAL
+                    .iter()
+                    .filter(|t| !auto.contains(*t))
+                    .cloned()
+                    .collect();
+                // Also cover the full built-in tool surface so nothing slips through.
+                for tool in [
+                    "shell_exec", "run_tests", "check_output", "diff_check",
+                    "file_write", "file_edit", "delete_file", "web_search", "browser",
+                ] {
+                    if !auto.contains(tool) {
+                        ctx.approval_required_tools.insert(tool.to_string());
+                    }
+                }
+            }
+            _ => {
+                // "dangerous_only" (default): keep the built-in dangerous set.
+                ctx.approval_required_tools = DEFAULT_APPROVAL.clone();
+            }
+        }
+
+        // Command allowlist (default-deny when non-empty).
+        for cmd in &section.allowed_commands {
+            let c = cmd.trim().to_lowercase();
+            if !c.is_empty() {
+                ctx.allowed_commands.insert(c);
+            }
+        }
+
+        // Sandbox jail root.
+        if section.jail_root != "." && !section.jail_root.is_empty() {
+            if let Ok(root) = std::fs::canonicalize(&section.jail_root) {
+                ctx.allowed_paths.insert(0, root);
+            }
         }
 
         ctx
@@ -228,6 +316,21 @@ impl SafetyContext {
                 warn!(command = %base, "blocked forbidden command");
                 return Err(AgentError::Safety(format!(
                     "Command '{}' is forbidden by security policy",
+                    base
+                )));
+            }
+        }
+
+        // 白名单（default-deny）：allowlist 非空时，仅放行命中白名单的命令。
+        // 黑名单已在上面优先拦截，白名单是第二道「最小权限」闸门。
+        if !self.allowed_commands.is_empty() {
+            let in_allowlist = candidates
+                .iter()
+                .any(|c| self.allowed_commands.contains(c));
+            if !in_allowlist {
+                warn!(command = %base, "blocked command not in allowlist");
+                return Err(AgentError::Safety(format!(
+                    "Command '{}' is not in the allowlist (default-deny policy)",
                     base
                 )));
             }
@@ -558,6 +661,17 @@ impl SafetyContext {
         self.forbidden_commands.iter().cloned().collect()
     }
 
+    /// Export the command allowlist as a Vec for compliance checking.
+    /// An empty Vec means allow-by-default (default-deny is disabled).
+    pub fn allowed_commands(&self) -> Vec<String> {
+        self.allowed_commands.iter().cloned().collect()
+    }
+
+    /// Whether the allowlist is active (i.e. default-deny / least-privilege mode).
+    pub fn allowlist_enabled(&self) -> bool {
+        !self.allowed_commands.is_empty()
+    }
+
     /// Check if a tool call requires user approval before execution.
     ///
     /// Returns `true` for high-risk operations (file deletion, network calls
@@ -779,10 +893,35 @@ mod tests {
         assert_eq!(a.forbidden_commands, b.forbidden_commands);
         assert_eq!(a.approval_required_tools, b.approval_required_tools);
         assert_eq!(a.auto_approve_tools, b.auto_approve_tools);
+        assert_eq!(a.allowed_commands, b.allowed_commands);
         // Mutating one clone must not affect the other
         let mut c = SafetyContext::default();
         c.forbidden_commands.insert("custom_cmd".into());
         let d = SafetyContext::default();
         assert!(!d.forbidden_commands.contains("custom_cmd"));
+    }
+
+    #[test]
+    fn test_allowlist_default_deny() {
+        let mut ctx = SafetyContext::default();
+        assert!(!ctx.allowlist_enabled());
+        ctx.allowed_commands.insert("git".to_string());
+        ctx.allowed_commands.insert("echo".to_string());
+        assert!(ctx.allowlist_enabled());
+
+        // 白名单内的命令放行
+        assert!(ctx.validate_command("echo hello").is_ok());
+        assert!(ctx.validate_command("git status").is_ok());
+        // 白名单外的命令被拒绝（default-deny）
+        assert!(ctx.validate_command("curl http://example.com").is_err());
+        assert!(ctx.validate_command("ls").is_err());
+    }
+
+    #[test]
+    fn test_allowlist_forbidden_takes_precedence() {
+        let mut ctx = SafetyContext::default();
+        ctx.allowed_commands.insert("rm".to_string());
+        // rm 在黑名单里，即便命中白名单也必须拒绝（黑名单优先）
+        assert!(ctx.validate_command("rm -rf /").is_err());
     }
 }

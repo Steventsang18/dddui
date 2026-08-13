@@ -590,7 +590,7 @@
   "channels.slackDesc": "از طریق Slack با دستیار DoDidDoneUi چت کنید",
   "channels.discordTitle": "Discord",
   "channels.discordDesc": "از طریق Discord با دستیار DoDidDoneUi چت کنید",
-  "channels.larkTitle": "Lark",
+  "channels.larkTitle": "Feishu",
   "channels.larkDesc": "از طریق Lark با دستیار DoDidDoneUi چت کنید",
   "channels.dingtalkTitle": "DingTalk",
   "channels.dingtalkDesc": "از طریق DingTalk با دستیار DoDidDoneUi چت کنید",
@@ -1293,5 +1293,21 @@
     "solveWithButler": "از باتلر بپرس"
   },
   "providerIdConflict": "شناسه ارائه‌دهنده از قبل وجود دارد. دوباره تلاش کنید.",
-  "autoInjectedSkillsHint": "در هر گفتگو به‌طور خودکار بارگذاری می‌شوند — نیازی به فعال‌سازی نیست؛ عامل تصمیم می‌گیرد چه زمانی از آن‌ها استفاده کند."
+  "autoInjectedSkillsHint": "در هر گفتگو به‌طور خودکار بارگذاری می‌شوند — نیازی به فعال‌سازی نیست؛ عامل تصمیم می‌گیرد چه زمانی از آن‌ها استفاده کند.",
+  "industry": "Industry Template",
+  "industryTemplate": {
+    "title": "Industry Solution Template",
+    "subtitle": "Choose a vertical template to tailor the assistant system prompt, allowed tools, and safety policy.",
+    "none": "No industry templates available",
+    "pleaseSelect": "Please select a template",
+    "invalidJson": "Company override is not valid JSON",
+    "saved": "Industry template saved",
+    "cleared": "Industry template cleared",
+    "companyOverride": "Company Override (JSON)",
+    "overrideHint": "Optional. JSON merged over the template baseline. Locked safety bottom-lines cannot be relaxed.",
+    "disabledTools": "Disabled",
+    "approveAll": "Approve all tools",
+    "approveDangerous": "Approve dangerous only",
+    "clear": "Clear selection"
+  }
 }

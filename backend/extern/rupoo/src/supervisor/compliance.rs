@@ -18,6 +18,8 @@ pub struct ComplianceChecker {
     forbidden_commands: HashSet<String>,
     /// 需要审批的工具
     approval_required_tools: HashSet<String>,
+    /// 白名单（default-deny）。非空时仅放行命中白名单的命令，黑名单优先。
+    allowed_commands: HashSet<String>,
 }
 
 impl ComplianceChecker {
@@ -25,6 +27,20 @@ impl ComplianceChecker {
         Self {
             forbidden_commands: forbidden.into_iter().collect(),
             approval_required_tools: approval_required.into_iter().collect(),
+            allowed_commands: HashSet::new(),
+        }
+    }
+
+    /// 带白名单构造。非空白名单启用 default-deny（最小权限）。
+    pub fn new_with_allowlist(
+        forbidden: Vec<String>,
+        approval_required: Vec<String>,
+        allowed: Vec<String>,
+    ) -> Self {
+        Self {
+            forbidden_commands: forbidden.into_iter().collect(),
+            approval_required_tools: approval_required.into_iter().collect(),
+            allowed_commands: allowed.into_iter().map(|s| s.to_lowercase()).collect(),
         }
     }
 
@@ -60,7 +76,10 @@ impl ComplianceChecker {
             approval.push(t.to_string());
         }
 
-        Self::new(forbidden, approval)
+        // 提取白名单（default-deny）。空 = 放行所有（保持向后兼容）
+        let allowed: Vec<String> = ctx.allowed_commands();
+
+        Self::new_with_allowlist(forbidden, approval, allowed)
     }
 
     /// 单次合规校验
@@ -79,6 +98,15 @@ impl ComplianceChecker {
             return Ok(ComplianceResult {
                 allowed: false,
                 reason: format!("命令 '{}' 被安全策略禁止", base),
+            });
+        }
+
+        // 白名单（default-deny）：allowlist 非空时，仅放行命中白名单的命令
+        if !self.allowed_commands.is_empty() && !self.is_allowed(&action.action_type) {
+            warn!(command = %base, "blocked command not in allowlist");
+            return Ok(ComplianceResult {
+                allowed: false,
+                reason: format!("命令 '{}' 不在白名单内（default-deny）", base),
             });
         }
 
@@ -115,6 +143,21 @@ impl ComplianceChecker {
             .unwrap_or(tool_name)
             .to_lowercase();
         self.approval_required_tools.contains(&lower)
+    }
+
+    /// 命令是否命中白名单（仅在 allowlist 非空时作为放行闸门使用）
+    pub fn is_allowed(&self, command: &str) -> bool {
+        let base = command
+            .split_whitespace()
+            .next()
+            .unwrap_or(command)
+            .to_lowercase();
+        self.allowed_commands.contains(&base)
+    }
+
+    /// 白名单是否启用（default-deny / 最小权限模式）
+    pub fn allowlist_enabled(&self) -> bool {
+        !self.allowed_commands.is_empty()
     }
 }
 
@@ -162,5 +205,45 @@ mod tests {
         let action = Action::new("any_command", "anything");
         let result = checker.check(&action).unwrap();
         assert!(result.allowed);
+    }
+
+    #[test]
+    fn test_allowlist_denies_unlisted() {
+        let checker = ComplianceChecker::new_with_allowlist(
+            vec![],
+            vec![],
+            vec!["git".to_string(), "echo".to_string()],
+        );
+        assert!(checker.allowlist_enabled());
+
+        let allowed = Action::new("echo", "echo hi");
+        assert!(checker.check(&allowed).unwrap().allowed);
+
+        let denied = Action::new("curl", "curl http://example.com");
+        let result = checker.check(&denied).unwrap();
+        assert!(!result.allowed);
+        assert!(result.reason.contains("白名单"));
+    }
+
+    #[test]
+    fn test_allowlist_empty_is_allow_by_default() {
+        let checker = ComplianceChecker::new(vec![], vec![]);
+        assert!(!checker.allowlist_enabled());
+        let action = Action::new("curl", "curl http://example.com");
+        assert!(checker.check(&action).unwrap().allowed);
+    }
+
+    #[test]
+    fn test_forbidden_wins_over_allowlist() {
+        // 黑名单优先：即便命令在白名单里，只要在黑名单中也要拦截
+        let checker = ComplianceChecker::new_with_allowlist(
+            vec!["rm".to_string()],
+            vec![],
+            vec!["rm".to_string(), "ls".to_string()],
+        );
+        let action = Action::new("rm", "rm -rf /");
+        let result = checker.check(&action).unwrap();
+        assert!(!result.allowed);
+        assert!(result.reason.contains("禁止"));
     }
 }

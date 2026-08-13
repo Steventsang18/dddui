@@ -91,6 +91,7 @@ fn make_factory(
         broadcaster: Arc::new(BroadcastEventBus::new(16)),
         backend_binary_path: Arc::new(PathBuf::from("/tmp/aionrs-test/dodiddoneui")),
         mcp_server_repo: None,
+        industry_template_repo: None,
         session_spawner,
     })
 }

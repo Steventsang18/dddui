@@ -4,7 +4,7 @@
 //! Architecture: McpToolExecutor directly holds `Box<dyn rig::tool::Tool>`,
 //! eliminating the intermediate ToolKind enum and manual serialization.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -163,7 +163,7 @@ impl McpToolExecutor {
     /// File tools will use the SafetyContext's jail_root for path validation.
     pub fn with_safety(safety_ctx: SafetyContext) -> Self {
         let jail_root = safety_ctx.jail_root().map(|p| p.to_path_buf());
-        let (tools, defs) = Self::build_tools(jail_root);
+        let (tools, defs) = Self::build_tools(jail_root, &None, &std::collections::HashSet::new());
         Self {
             registry: Arc::new(RwLock::new(tools)),
             definitions: Arc::new(RwLock::new(defs)),
@@ -180,8 +180,47 @@ impl McpToolExecutor {
         exec
     }
 
+    /// Build from an industry-template [`SafetySection`].
+    ///
+    /// Applies the resolved `allowed_tools` / `excluded_tools` to the tool
+    /// registry (allowlist when `allowed_tools` is set; `excluded_tools` is
+    /// always subtracted). The `SafetyContext` is derived via
+    /// [`SafetyContext::from_section`] so command jail + approval policy also apply.
+    pub fn with_safety_section(
+        section: &crate::config::SafetySection,
+        profile: Option<&crate::config::AgentProfile>,
+        gate: Option<Arc<ApprovalGate>>,
+    ) -> Self {
+        let safety = SafetyContext::from_section(section);
+        let jail_root = safety.jail_root().map(|p| p.to_path_buf());
+
+        let allowed = profile
+            .and_then(|p| p.allowed_tools.as_ref())
+            .map(|v| v.iter().cloned().collect::<HashSet<_>>());
+        let excluded = profile
+            .and_then(|p| p.excluded_tools.as_ref())
+            .map(|v| v.iter().cloned().collect::<HashSet<_>>())
+            .unwrap_or_default();
+
+        let (tools, defs) = Self::build_tools(jail_root, &allowed, &excluded);
+
+        Self {
+            registry: Arc::new(RwLock::new(tools)),
+            definitions: Arc::new(RwLock::new(defs)),
+            safety,
+            approval: gate,
+        }
+    }
+
+    /// Immutably borrow the executor's [`SafetyContext`].
+    pub fn safety(&self) -> &SafetyContext {
+        &self.safety
+    }
+
     fn build_tools(
         jail_root: Option<std::path::PathBuf>,
+        allowed: &Option<HashSet<String>>,
+        excluded: &HashSet<String>,
     ) -> (
         HashMap<String, Arc<dyn BoxedTool>>,
         HashMap<String, rig::completion::ToolDefinition>,
@@ -192,10 +231,20 @@ impl McpToolExecutor {
         // Helper to register a tool
         macro_rules! register {
             ($name:expr, $tool:expr) => {{
-                let tool = $tool;
-                let def = futures::executor::block_on(tool.definition(String::new()));
-                tools.insert($name.into(), Arc::new(ToolWrapper(tool)));
-                defs.insert($name.into(), def);
+                let name: String = $name.into();
+                // Apply industry-template tool scoping: allowlist (if any) must
+                // contain the tool, and excluded_tools always subtracts it.
+                let scoped = if let Some(allow) = allowed {
+                    allow.contains(&name)
+                } else {
+                    true
+                } && !excluded.contains(&name);
+                if scoped {
+                    let tool = $tool;
+                    let def = futures::executor::block_on(tool.definition(String::new()));
+                    tools.insert(name.clone(), Arc::new(ToolWrapper(tool)));
+                    defs.insert(name, def);
+                }
             }};
         }
 

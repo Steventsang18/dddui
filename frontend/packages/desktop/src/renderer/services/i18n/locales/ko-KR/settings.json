@@ -590,7 +590,7 @@
   "channels.slackDesc": "Chat with DoDidDoneUi assistant via Slack",
   "channels.discordTitle": "Discord",
   "channels.discordDesc": "Chat with DoDidDoneUi assistant via Discord",
-  "channels.larkTitle": "Lark",
+  "channels.larkTitle": "Feishu",
   "channels.larkDesc": "Chat with DoDidDoneUi assistant via Lark",
   "channels.dingtalkTitle": "DingTalk",
   "channels.dingtalkDesc": "Chat with DoDidDoneUi assistant via DingTalk",
@@ -1295,5 +1295,21 @@
     "solveWithButler": "집사에게 문의"
   },
   "providerIdConflict": "Provider ID가 이미 있습니다. 다시 시도하세요.",
-  "autoInjectedSkillsHint": "모든 대화에 자동으로 로드됩니다. 활성화할 필요가 없으며, 에이전트가 사용 시점을 결정합니다."
+  "autoInjectedSkillsHint": "모든 대화에 자동으로 로드됩니다. 활성화할 필요가 없으며, 에이전트가 사용 시점을 결정합니다.",
+  "industry": "Industry Template",
+  "industryTemplate": {
+    "title": "Industry Solution Template",
+    "subtitle": "Choose a vertical template to tailor the assistant system prompt, allowed tools, and safety policy.",
+    "none": "No industry templates available",
+    "pleaseSelect": "Please select a template",
+    "invalidJson": "Company override is not valid JSON",
+    "saved": "Industry template saved",
+    "cleared": "Industry template cleared",
+    "companyOverride": "Company Override (JSON)",
+    "overrideHint": "Optional. JSON merged over the template baseline. Locked safety bottom-lines cannot be relaxed.",
+    "disabledTools": "Disabled",
+    "approveAll": "Approve all tools",
+    "approveDangerous": "Approve dangerous only",
+    "clear": "Clear selection"
+  }
 }

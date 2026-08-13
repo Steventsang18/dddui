@@ -590,7 +590,7 @@
   "channels.slackDesc": "Slack üzerinden DoDidDoneUi asistanı ile sohbet edin",
   "channels.discordTitle": "Discord",
   "channels.discordDesc": "Discord üzerinden DoDidDoneUi asistanı ile sohbet edin",
-  "channels.larkTitle": "Lark",
+  "channels.larkTitle": "Feishu",
   "channels.larkDesc": "Lark üzerinden DoDidDoneUi asistanı ile sohbet edin",
   "channels.dingtalkTitle": "DingTalk",
   "channels.dingtalkDesc": "Chat with DoDidDoneUi assistant via DingTalk",
@@ -1293,5 +1293,21 @@
     "solveWithButler": "Kâhya'ya sor"
   },
   "providerIdConflict": "Provider ID zaten var. Lütfen tekrar deneyin.",
-  "autoInjectedSkillsHint": "Her sohbete otomatik olarak yüklenir — etkinleştirmeye gerek yoktur; aracı bunları ne zaman kullanacağına karar verir."
+  "autoInjectedSkillsHint": "Her sohbete otomatik olarak yüklenir — etkinleştirmeye gerek yoktur; aracı bunları ne zaman kullanacağına karar verir.",
+  "industry": "Industry Template",
+  "industryTemplate": {
+    "title": "Industry Solution Template",
+    "subtitle": "Choose a vertical template to tailor the assistant system prompt, allowed tools, and safety policy.",
+    "none": "No industry templates available",
+    "pleaseSelect": "Please select a template",
+    "invalidJson": "Company override is not valid JSON",
+    "saved": "Industry template saved",
+    "cleared": "Industry template cleared",
+    "companyOverride": "Company Override (JSON)",
+    "overrideHint": "Optional. JSON merged over the template baseline. Locked safety bottom-lines cannot be relaxed.",
+    "disabledTools": "Disabled",
+    "approveAll": "Approve all tools",
+    "approveDangerous": "Approve dangerous only",
+    "clear": "Clear selection"
+  }
 }

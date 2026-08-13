@@ -1296,5 +1296,21 @@
     "solveWithButler": "Perguntar ao Mordomo"
   },
   "providerIdConflict": "O Provider ID já existe. Tente novamente.",
-  "autoInjectedSkillsHint": "Carregadas automaticamente em cada conversa — não é preciso ativá-las; o agente decide quando usá-las."
+  "autoInjectedSkillsHint": "Carregadas automaticamente em cada conversa — não é preciso ativá-las; o agente decide quando usá-las.",
+  "industry": "Industry Template",
+  "industryTemplate": {
+    "title": "Industry Solution Template",
+    "subtitle": "Choose a vertical template to tailor the assistant system prompt, allowed tools, and safety policy.",
+    "none": "No industry templates available",
+    "pleaseSelect": "Please select a template",
+    "invalidJson": "Company override is not valid JSON",
+    "saved": "Industry template saved",
+    "cleared": "Industry template cleared",
+    "companyOverride": "Company Override (JSON)",
+    "overrideHint": "Optional. JSON merged over the template baseline. Locked safety bottom-lines cannot be relaxed.",
+    "disabledTools": "Disabled",
+    "approveAll": "Approve all tools",
+    "approveDangerous": "Approve dangerous only",
+    "clear": "Clear selection"
+  }
 }

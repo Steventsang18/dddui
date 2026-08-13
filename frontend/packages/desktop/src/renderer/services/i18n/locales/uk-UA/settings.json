@@ -590,7 +590,7 @@
   "channels.slackDesc": "Спілкуйтеся з асистентом DoDidDoneUi через Slack",
   "channels.discordTitle": "Discord",
   "channels.discordDesc": "Спілкуйтеся з асистентом DoDidDoneUi через Discord",
-  "channels.larkTitle": "Lark",
+  "channels.larkTitle": "Feishu",
   "channels.larkDesc": "Спілкуйтеся з асистентом DoDidDoneUi через Lark",
   "channels.dingtalkTitle": "DingTalk",
   "channels.dingtalkDesc": "Спілкуйтеся з асистентом DoDidDoneUi через DingTalk",
@@ -1294,5 +1294,21 @@
   "providerIdConflict": "Provider ID вже існує. Спробуйте ще раз.",
   "channels.wecomTitle": "WeCom",
   "channels.wecomDesc": "Chat with DoDidDoneUi assistant via WeCom (Enterprise WeChat AI Bot)",
-  "autoInjectedSkillsHint": "Автоматично завантажуються в кожну розмову — вмикати не потрібно; агент сам вирішує, коли їх використовувати."
+  "autoInjectedSkillsHint": "Автоматично завантажуються в кожну розмову — вмикати не потрібно; агент сам вирішує, коли їх використовувати.",
+  "industry": "Industry Template",
+  "industryTemplate": {
+    "title": "Industry Solution Template",
+    "subtitle": "Choose a vertical template to tailor the assistant system prompt, allowed tools, and safety policy.",
+    "none": "No industry templates available",
+    "pleaseSelect": "Please select a template",
+    "invalidJson": "Company override is not valid JSON",
+    "saved": "Industry template saved",
+    "cleared": "Industry template cleared",
+    "companyOverride": "Company Override (JSON)",
+    "overrideHint": "Optional. JSON merged over the template baseline. Locked safety bottom-lines cannot be relaxed.",
+    "disabledTools": "Disabled",
+    "approveAll": "Approve all tools",
+    "approveDangerous": "Approve dangerous only",
+    "clear": "Clear selection"
+  }
 }

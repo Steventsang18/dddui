@@ -148,6 +148,20 @@ pub use crate::plan_cache::{CachedPlan, PlanCache, PlanCacheConfig};
 
 impl Agent {
     pub fn new(repo: Arc<TaskRepo>, tool_executor: std::sync::Arc<dyn ToolExecutor>) -> Self {
+        Self::with_safety(repo, tool_executor, SafetyContext::default())
+    }
+
+    /// Construct an [`Agent`] with an explicit [`SafetyContext`].
+    ///
+    /// The context is shared with both the agent's runtime enforcement
+    /// (`safety_ctx`, used for command validation + tool approval) and the
+    /// adaptive loop engine, so industry-template policies propagate into the
+    /// iterative execution layer as well.
+    pub fn with_safety(
+        repo: Arc<TaskRepo>,
+        tool_executor: std::sync::Arc<dyn ToolExecutor>,
+        safety_ctx: SafetyContext,
+    ) -> Self {
         let memory_cache = std::sync::Arc::new(MemoryCache::new(Arc::clone(&repo), 64));
         let memory_store = std::sync::Arc::new(MemoryStore::new(Arc::clone(&repo)));
         let plan_cache = std::sync::Arc::new(PlanCache::new(PlanCacheConfig::default()));
@@ -157,7 +171,7 @@ impl Agent {
         let loop_engine = Some(std::sync::Arc::new(crate::loop_engine::LoopEngine::new(
             Arc::clone(&repo),
             Arc::clone(&memory_cache),
-            SafetyContext::default(),
+            safety_ctx.clone(),
             Arc::clone(&tool_executor),
         )));
         let memory_system = std::sync::Arc::new(MemorySystemBridge::new(Arc::clone(&repo)));
@@ -170,7 +184,7 @@ impl Agent {
             hybrid_search_enabled: AtomicBool::new(false),
             tool_executor,
             llm_gateway: None,
-            safety_ctx: SafetyContext::default(),
+            safety_ctx,
             cached_system_prompt: std::sync::Mutex::new(None),
             last_usage: std::sync::Mutex::new(None),
             cancelled: std::sync::atomic::AtomicBool::new(false),

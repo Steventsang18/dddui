@@ -21,14 +21,23 @@
 #   in backend/.env (gitignored). See backend/.env.example for the template.
 #
 # Usage:
-#   ./start-roseui.sh          # start in background (owner mode, 127.0.0.1:3080)
-#   ./start-roseui.sh --stop   # stop the running instance
-#   ./start-roseui.sh --restart
+#   ./start-roseui.sh            # start DEV build (target/debug + disk dist), background
+#   ./start-roseui.sh --release  # start RELEASE build (target/release, embedded dist)
+#   ./start-roseui.sh --stop     # stop the running instance
+#   ./start-roseui.sh --restart  # restart (applies current mode: dev or --release)
+#
+# Mode notes:
+#   dev   (default): uses target/debug/dodiddoneui and serves the on-disk frontend
+#                    dist via --static-dir (frontend/.../dist). Good for iterating
+#                    without recompiling the binary.
+#   --release:       uses target/release/dodiddoneui with the frontend embedded at
+#                    compile time (rust-embed). This is the SHIPPED/USER form.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DATA_DIR="$SCRIPT_DIR/data"
+MODE="debug"
 BIN="$SCRIPT_DIR/target/debug/dodiddoneui"
 PID_FILE="$SCRIPT_DIR/.dodiddoneui.pid"
 LOG_FILE="$SCRIPT_DIR/dodiddoneui.log"
@@ -67,6 +76,9 @@ stop_instance() {
 }
 
 case "${1:-}" in
+  --release)
+    MODE="release"
+    ;;
   --stop)
     stop_instance
     echo "Stopped."
@@ -75,10 +87,28 @@ case "${1:-}" in
   --restart)
     stop_instance
     ;;
+  "")
+    # default dev mode, nothing to do
+    ;;
+  *)
+    echo "Unknown argument: $1" >&2
+    echo "Usage: $0 [--release|--stop|--restart]" >&2
+    exit 1
+    ;;
 esac
 
+if [[ "$MODE" == "release" ]]; then
+  BIN="$SCRIPT_DIR/target/release/dodiddoneui"
+else
+  BIN="$SCRIPT_DIR/target/debug/dodiddoneui"
+fi
+
 if [[ ! -x "$BIN" ]]; then
-  echo "Binary not found at $BIN — run 'cargo build -p roseui-app' first." >&2
+  if [[ "$MODE" == "release" ]]; then
+    echo "Release binary not found at $BIN — run './build.sh' (or 'cargo build --release -p roseui-app') first." >&2
+  else
+    echo "Debug binary not found at $BIN — run 'cargo build -p roseui-app' first." >&2
+  fi
   exit 1
 fi
 
@@ -91,18 +121,24 @@ if [[ -f "$PID_FILE" ]]; then
   fi
 fi
 
-echo "Starting dodiddoneui (data-dir=$DATA_DIR)..."
-# Serve the freshly built frontend from disk instead of the embedded build.
-# (Embedded assets only refresh by recompiling the Rust binary; the built
-# renderer dist lives at frontend/packages/desktop/src/renderer/dist.)
-STATIC_DIR="$SCRIPT_DIR/../frontend/packages/desktop/src/renderer/dist"
-nohup "$BIN" --port 3080 --host 127.0.0.1 --identity-mode owner --data-dir "$DATA_DIR" --static-dir "$STATIC_DIR" \
-  > "$LOG_FILE" 2>&1 &
+echo "Starting dodiddoneui [$MODE] (data-dir=$DATA_DIR)..."
+if [[ "$MODE" == "release" ]]; then
+  # SHIPPED form: frontend is embedded at compile time (rust-embed). No --static-dir.
+  nohup "$BIN" --port 3080 --host 127.0.0.1 --identity-mode owner --data-dir "$DATA_DIR" \
+    > "$LOG_FILE" 2>&1 &
+else
+  # DEV form: serve the freshly built frontend from disk instead of the embedded
+  # build (embedded assets only refresh by recompiling the Rust binary; the built
+  # renderer dist lives at frontend/packages/desktop/src/renderer/dist).
+  STATIC_DIR="$SCRIPT_DIR/../frontend/packages/desktop/src/renderer/dist"
+  nohup "$BIN" --port 3080 --host 127.0.0.1 --identity-mode owner --data-dir "$DATA_DIR" --static-dir "$STATIC_DIR" \
+    > "$LOG_FILE" 2>&1 &
+fi
 echo $! > "$PID_FILE"
 disown
 sleep 4
 if lsof -ti :3080 >/dev/null 2>&1; then
-  echo "dodiddoneui is up on http://127.0.0.1:3080 (pid $(cat "$PID_FILE"))"
+  echo "dodiddoneui [$MODE] is up on http://127.0.0.1:3080 (pid $(cat "$PID_FILE"))"
 else
   echo "dodiddoneui did not come up. Check $LOG_FILE"
   exit 1

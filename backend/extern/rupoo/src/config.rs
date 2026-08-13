@@ -378,6 +378,8 @@ pub struct SafetySection {
     pub forbidden_commands: Vec<String>,
     #[serde(default = "default_auto_approve_tools")]
     pub auto_approve_tools: Vec<String>,
+    #[serde(default = "default_allowed_commands")]
+    pub allowed_commands: Vec<String>,
 }
 
 impl Default for SafetySection {
@@ -387,6 +389,7 @@ impl Default for SafetySection {
             approval_policy: default_approval_policy(),
             forbidden_commands: default_forbidden_commands(),
             auto_approve_tools: default_auto_approve_tools(),
+            allowed_commands: default_allowed_commands(),
         }
     }
 }
@@ -401,6 +404,9 @@ fn default_forbidden_commands() -> Vec<String> {
     vec![]
 }
 fn default_auto_approve_tools() -> Vec<String> {
+    vec![]
+}
+fn default_allowed_commands() -> Vec<String> {
     vec![]
 }
 
@@ -1130,6 +1136,7 @@ mod tests {
         // Default lists are now empty — real defaults live in SafetyContext
         assert!(safety.forbidden_commands.is_empty());
         assert!(safety.auto_approve_tools.is_empty());
+        assert!(safety.allowed_commands.is_empty());
     }
 
     #[test]

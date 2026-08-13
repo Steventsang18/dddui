@@ -56,17 +56,17 @@ React 前端在编译期经 `rust-embed` 嵌入 Rust 二进制，运行期同源
 
 ```bash
 # 1. 构建单二进制（前端会自动内嵌）
-./scripts/build-binary.sh --release
+./build.sh            # 等价于 ./scripts/build-binary.sh --release
 #    产物：backend/target/release/dodiddoneui
 
-# 2. 启动（默认绑定 127.0.0.1，首次启动自动打开浏览器）
-./backend/target/release/dodiddoneui --port 3080 --host 127.0.0.1
+# 2. 启动（release 形态，前端已内嵌；默认绑定 127.0.0.1:3080）
+./backend/start-roseui.sh --release
 
 # 3. 浏览器打开
 #    http://127.0.0.1:3080
 ```
 
-就这么简单——不需要 Node，不需要额外服务器，二进制包揽一切。
+`start-roseui.sh` 支持：`--release`（发布形态，内嵌前端）/ 默认（开发态，读磁盘 dist）/ `--stop` / `--restart`。就这么简单——不需要 Node，不需要额外服务器，二进制包揽一切。
 
 > **首次配置**：在能聊天或使用 Agent 之前，请到 **设置 → 模型** 配置一个国产主流大模型（如 DeepSeek）并粘贴你的 API Key。配置后对话 / Agent 功能即会启用。
 

@@ -582,7 +582,7 @@
   "channels.slackDesc": "Mit DoDidDoneUi-Assistent über Slack chatten",
   "channels.discordTitle": "Discord",
   "channels.discordDesc": "Mit DoDidDoneUi-Assistent über Discord chatten",
-  "channels.larkTitle": "Lark",
+  "channels.larkTitle": "Feishu",
   "channels.larkDesc": "Mit DoDidDoneUi-Assistent über Lark chatten",
   "channels.dingtalkTitle": "DingTalk",
   "channels.dingtalkDesc": "Mit DoDidDoneUi-Assistent über DingTalk chatten",
@@ -1293,5 +1293,21 @@
     "emptyOverridesError": "Enter a launch path or at least one environment variable before saving."
   },
   "providerIdConflict": "Provider-ID existiert bereits. Bitte erneut versuchen.",
-  "autoInjectedSkillsHint": "Werden automatisch in jede Unterhaltung geladen – kein Aktivieren nötig; der Agent entscheidet, wann er sie nutzt."
+  "autoInjectedSkillsHint": "Werden automatisch in jede Unterhaltung geladen – kein Aktivieren nötig; der Agent entscheidet, wann er sie nutzt.",
+  "industry": "Industry Template",
+  "industryTemplate": {
+    "title": "Industry Solution Template",
+    "subtitle": "Choose a vertical template to tailor the assistant system prompt, allowed tools, and safety policy.",
+    "none": "No industry templates available",
+    "pleaseSelect": "Please select a template",
+    "invalidJson": "Company override is not valid JSON",
+    "saved": "Industry template saved",
+    "cleared": "Industry template cleared",
+    "companyOverride": "Company Override (JSON)",
+    "overrideHint": "Optional. JSON merged over the template baseline. Locked safety bottom-lines cannot be relaxed.",
+    "disabledTools": "Disabled",
+    "approveAll": "Approve all tools",
+    "approveDangerous": "Approve dangerous only",
+    "clear": "Clear selection"
+  }
 }

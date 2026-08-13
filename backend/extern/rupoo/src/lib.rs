@@ -21,6 +21,7 @@ pub mod error;
 pub mod execution;
 pub mod git;
 pub mod http_client;
+pub mod industry_template;
 pub mod llm;
 pub mod loop_engine;
 pub mod mcp;
