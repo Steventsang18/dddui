@@ -18,3 +18,6 @@
 # Tooling / build artifacts (never commit)
 .codebuddy/
 backend/crates/roseui-webhost/assets/
+
+# Demo media (gif/mp4 screenshots) are large and not source — keep out of git
+frontend/resources/
