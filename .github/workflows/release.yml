@@ -23,11 +23,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04
+          # ubuntu-20.04 ships glibc 2.31, which satisfies the GLIBC_2.34
+          # baseline check (scripts/check-glibc-baseline.sh) and maximizes
+          # compatibility across olderLinux distros. ubuntu-22.04 produces a
+          # binary requiring GLIBC_2.35 and fails the check.
+          - os: ubuntu-20.04
             artifact: dodiddoneui-linux-x86_64
             binary: backend/target/release/dodiddoneui
           - os: macos-latest
-            artifact: dodiddoneui-macos-x86_64
+            artifact: dodiddoneui-macos-arm64
             binary: backend/target/release/dodiddoneui
           - os: windows-latest
             artifact: dodiddoneui-windows-x86_64.exe
@@ -111,6 +115,6 @@ jobs:
             --notes "预编译单二进制 dodiddoneui（macOS / Windows / Linux）。下载后运行：\`\`./dodiddoneui --port 3080\`\`，浏览器打开 http://127.0.0.1:3080。" \
             --verify-tag \
             dodiddoneui-linux-x86_64 \
-            dodiddoneui-macos-x86_64 \
+            dodiddoneui-macos-arm64 \
             dodiddoneui-windows-x86_64.exe \
             checksums.txt
