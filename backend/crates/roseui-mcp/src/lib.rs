@@ -9,6 +9,7 @@ pub mod oauth_service;
 pub mod routes;
 pub mod service;
 pub mod session_injection;
+pub mod traits;
 pub mod sync_service;
 pub mod types;
 

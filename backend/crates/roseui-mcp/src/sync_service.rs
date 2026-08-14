@@ -9,6 +9,7 @@ use tracing::warn;
 
 use crate::adapter::{DetectedServer, McpAgentAdapter};
 use crate::error::McpError;
+use crate::traits::IMcpSyncService;
 
 /// Discovers MCP configuration currently installed in external Agent CLIs.
 ///
@@ -74,6 +75,16 @@ impl McpSyncService {
             .or_insert_with(|| Arc::new(Mutex::new(())))
             .clone();
         lock.lock_owned().await
+    }
+}
+
+#[async_trait::async_trait]
+impl IMcpSyncService for McpSyncService {
+    async fn get_agent_configs(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<DetectedMcpServerResponse>, McpError> {
+        self.get_agent_configs(user_id).await
     }
 }
 

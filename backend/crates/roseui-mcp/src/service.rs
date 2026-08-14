@@ -9,6 +9,7 @@ use roseui_db::{CreateMcpServerParams, IMcpServerRepository, UpdateMcpServerPara
 use tracing::{info, warn};
 
 use crate::error::McpError;
+use crate::traits::IMcpConfigService;
 use crate::types::{McpServer, McpServerTransport};
 
 const SPLITTABLE_STDIO_LAUNCHERS: &[&str] = &["npx", "pnpx", "bunx", "uvx", "uv", "node", "python", "python3", "deno"];
@@ -373,6 +374,63 @@ fn shell_split(input: &str) -> Result<Vec<String>, String> {
         tokens.push(current);
     }
     Ok(tokens)
+}
+
+// ---------------------------------------------------------------------------
+// Capability seam: satisfy IMcpConfigService without duplicating logic.
+// ---------------------------------------------------------------------------
+
+#[async_trait::async_trait]
+impl IMcpConfigService for McpConfigService {
+    async fn list_servers(&self, user_id: &str) -> Result<Vec<McpServerResponse>, McpError> {
+        self.list_servers(user_id).await
+    }
+
+    async fn get_server(&self, user_id: &str, id: &str) -> Result<McpServerResponse, McpError> {
+        self.get_server(user_id, id).await
+    }
+
+    async fn add_server(
+        &self,
+        user_id: &str,
+        req: CreateMcpServerRequest,
+    ) -> Result<McpServerResponse, McpError> {
+        self.add_server(user_id, req).await
+    }
+
+    async fn edit_server(
+        &self,
+        user_id: &str,
+        id: &str,
+        req: UpdateMcpServerRequest,
+    ) -> Result<McpServerResponse, McpError> {
+        self.edit_server(user_id, id, req).await
+    }
+
+    async fn delete_server(&self, user_id: &str, id: &str) -> Result<bool, McpError> {
+        self.delete_server(user_id, id).await
+    }
+
+    async fn toggle_server(&self, user_id: &str, id: &str) -> Result<McpServerResponse, McpError> {
+        self.toggle_server(user_id, id).await
+    }
+
+    async fn batch_import(
+        &self,
+        user_id: &str,
+        req: BatchImportMcpServersRequest,
+    ) -> Result<Vec<McpServerResponse>, McpError> {
+        self.batch_import(user_id, req).await
+    }
+
+    async fn persist_test_result(
+        &self,
+        user_id: &str,
+        id: &str,
+        result: &McpConnectionTestResult,
+    ) -> Result<(), McpError> {
+        self.persist_test_result(user_id, id, result).await
+    }
 }
 
 // ---------------------------------------------------------------------------

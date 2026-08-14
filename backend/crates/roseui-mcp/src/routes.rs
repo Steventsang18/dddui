@@ -18,8 +18,7 @@ use roseui_common::ApiError;
 use crate::connection_test::McpConnectionTestService;
 use crate::error::McpError;
 use crate::oauth_service::McpOAuthService;
-use crate::service::McpConfigService;
-use crate::sync_service::McpSyncService;
+use crate::traits::{McpConfigServiceRef, McpSyncServiceRef};
 use crate::types::McpServerTransport;
 
 impl From<McpError> for ApiError {
@@ -46,8 +45,8 @@ impl From<McpError> for ApiError {
 /// Shared state for MCP route handlers.
 #[derive(Clone)]
 pub struct McpRouterState {
-    pub config_service: McpConfigService,
-    pub sync_service: McpSyncService,
+    pub config_service: McpConfigServiceRef,
+    pub sync_service: McpSyncServiceRef,
     pub connection_test_service: McpConnectionTestService,
     pub oauth_service: McpOAuthService,
 }

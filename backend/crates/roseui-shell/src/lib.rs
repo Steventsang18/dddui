@@ -14,12 +14,14 @@ pub mod stt_stream_deepgram;
 pub mod stt_stream_openai;
 pub mod stt_stream_provider;
 pub(crate) mod stt_stream_tls;
+pub mod traits;
 
 pub use error::{ShellError, SttError};
 pub use opener::{DefaultSystemOpener, ISystemOpener, NoopSystemOpener};
 pub use routes::shell_routes;
 pub use shell::ShellService;
 pub use state::ShellRouterState;
+pub use traits::{IShellService, ShellServiceRef};
 pub use stt::SttService;
 pub use stt_stream::{ClientFrame, UpstreamEvent, UpstreamFactory, UpstreamStream, run_stream_session};
 pub use stt_stream_deepgram::DeepgramUpstreamFactory;

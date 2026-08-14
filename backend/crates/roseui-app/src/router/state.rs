@@ -523,8 +523,8 @@ pub fn build_mcp_state(services: &AppServices) -> McpRouterState {
     let http_client = reqwest::Client::new();
 
     McpRouterState {
-        config_service: McpConfigService::new(repo.clone()),
-        sync_service: McpSyncService::new(repo, adapters),
+        config_service: Arc::new(McpConfigService::new(repo.clone())),
+        sync_service: Arc::new(McpSyncService::new(repo, adapters)),
         connection_test_service: McpConnectionTestService::new(http_client.clone(), services.event_bus.clone()),
         oauth_service: roseui_mcp::McpOAuthService::new(oauth_token_repo, http_client),
     }

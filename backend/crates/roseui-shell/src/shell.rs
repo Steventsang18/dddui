@@ -5,6 +5,7 @@ use roseui_api_types::ToolType;
 
 use crate::error::ShellError;
 use crate::opener::ISystemOpener;
+use crate::traits::IShellService;
 
 const ALLOWED_URL_SCHEMES: &[&str] = &["http", "https", "mailto"];
 
@@ -214,6 +215,29 @@ fn validate_url(url: &str) -> Result<(), ShellError> {
         )));
     }
     Ok(())
+}
+
+#[async_trait::async_trait]
+impl IShellService for ShellService {
+    async fn open_file(&self, file_path: &str) -> Result<(), ShellError> {
+        self.open_file(file_path).await
+    }
+
+    async fn show_item_in_folder(&self, file_path: &str) -> Result<(), ShellError> {
+        self.show_item_in_folder(file_path).await
+    }
+
+    async fn open_external(&self, url: &str) -> Result<(), ShellError> {
+        self.open_external(url).await
+    }
+
+    async fn check_tool_installed(&self, tool: ToolType) -> bool {
+        self.check_tool_installed(tool).await
+    }
+
+    async fn open_folder_with(&self, folder_path: &str, tool: ToolType) -> Result<(), ShellError> {
+        self.open_folder_with(folder_path, tool).await
+    }
 }
 
 #[cfg(test)]
