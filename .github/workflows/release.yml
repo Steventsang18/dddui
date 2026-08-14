@@ -68,6 +68,10 @@ jobs:
         working-directory: backend
         run: cargo build --release -p roseui-app
 
+      - name: Strip symbols (cross-platform)
+        working-directory: backend
+        run: strip target/release/dodiddoneui${{ runner.os == 'Windows' && '.exe' || '' }}
+
       - name: Check GLIBC baseline (Linux)
         if: runner.os == 'Linux'
         working-directory: backend

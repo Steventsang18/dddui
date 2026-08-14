@@ -37,4 +37,16 @@ cd "$CORE_DIR"
 # shellcheck disable=SC2086
 cargo build $CARGO_PROFILE
 
+# Strip the linked binary explicitly. Cargo's `strip = "symbols"` in the workspace
+# profile handles ELF/PE (Linux/Windows) reliably but is inconsistent for Mach-O
+# on macOS, so we force a clean strip here to guarantee the shipped binary is
+# symbol-free on every platform (smaller size, no symbol-name leakage).
+if [[ "$MODE" == "--release" ]]; then
+  BIN="$CORE_DIR/target/release/dodiddoneui"
+  if [[ -f "$BIN" ]]; then
+    echo "==> [3b] stripping $BIN"
+    strip "$BIN"
+  fi
+fi
+
 echo "==> done. run: ./backend/target/${CARGO_PROFILE:+release/}dodiddoneui --port 3080 --host 127.0.0.1"

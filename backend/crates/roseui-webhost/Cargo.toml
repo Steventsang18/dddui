@@ -9,7 +9,7 @@ roseui-common.workspace = true
 axum.workspace = true
 http.workspace = true
 mime_guess.workspace = true
-rust-embed.workspace = true
+rust-embed = { workspace = true, features = ["compression"] }
 sha2.workspace = true
 tokio.workspace = true
 tower.workspace = true

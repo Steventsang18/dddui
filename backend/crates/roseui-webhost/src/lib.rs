@@ -22,6 +22,11 @@ use rust_embed::RustEmbed;
 use sha2::{Digest, Sha256};
 
 /// 编译期内嵌的前端构建产物目录（由构建脚本从前端 dist 拷入）。
+///
+/// `rust-embed` 的 `compression` feature 已在 crate 依赖中启用，编译期会把
+/// dist 资源 gzip 后存入二进制，运行期 `get()` 自动解压返回原始 bytes（对调用
+/// 方透明）。前端 22MB+ 资源经 gzip 内嵌可将二进制体积再压掉约 15MB，且不改变
+/// 分发形态（仍是单二进制）。
 #[derive(RustEmbed)]
 #[folder = "assets/"]
 struct FrontendAssets;
