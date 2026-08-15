@@ -56,6 +56,8 @@ use crate::{ConversationAgentTurnRequest, ConversationAgentTurnStatus, Conversat
 
 #[path = "service_test/acp_error_recovery_test.rs"]
 mod acp_error_recovery_test;
+#[path = "service_test/session_event_persist_test.rs"]
+mod session_event_persist_test;
 
 #[derive(Clone, Debug)]
 struct SkillLinkCall {

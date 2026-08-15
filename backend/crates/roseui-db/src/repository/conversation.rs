@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::DbError;
 use crate::models::{
     ConversationArtifactRow, ConversationAssistantSnapshotRow, ConversationRow, MessageRow,
-    UpsertConversationAssistantSnapshotParams,
+    SessionEventRow, UpsertConversationAssistantSnapshotParams,
 };
 
 /// Conversation + message data access abstraction.
@@ -137,6 +137,15 @@ pub trait IConversationRepository: Send + Sync {
 
     /// Deletes all messages belonging to a conversation.
     async fn delete_messages_by_conversation(&self, user_id: &str, conv_id: &str) -> Result<(), DbError>;
+
+    /// Appends a session trace event. `turn_seq` is computed by the caller
+    /// (typically `MAX(turn_seq)+1` within the conversation) so events replay
+    /// in a stable order even when `created_at` collides. Ownership of the
+    /// parent conversation is verified; the write fails with `NotFound` if the
+    /// conversation does not belong to `user_id`.
+    async fn insert_session_event(&self, _user_id: &str, _event: &SessionEventRow) -> Result<(), DbError> {
+        Ok(())
+    }
 
     /// Finds a message by (conversation_id, msg_id, type) triple.
     async fn get_message_by_msg_id(

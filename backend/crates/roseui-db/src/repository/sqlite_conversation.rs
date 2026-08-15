@@ -5,7 +5,7 @@ use roseui_common::PaginatedResult;
 use crate::error::DbError;
 use crate::models::{
     ConversationArtifactRow, ConversationAssistantSnapshotRow, ConversationRow, MessageRow,
-    UpsertConversationAssistantSnapshotParams,
+    SessionEventRow, UpsertConversationAssistantSnapshotParams,
 };
 use crate::repository::conversation::{
     ConversationFilters, ConversationRowUpdate, IConversationRepository, MessagePageCursor, MessagePageDirection,
@@ -847,6 +847,71 @@ impl IConversationRepository for SqliteConversationRepository {
 
     async fn insert_message(&self, user_id: &str, message: &MessageRow) -> Result<(), DbError> {
         self.insert_message_once(user_id, message).await
+    }
+
+    async fn insert_session_event(&self, user_id: &str, event: &SessionEventRow) -> Result<(), DbError> {
+        // Ownership check inside the same transaction as the insert, so parent
+        // authorization and the trace write are atomic (mirrors insert_message_once).
+        let mut connection = self.pool.acquire().await?;
+        sqlx::query("BEGIN IMMEDIATE").execute(&mut *connection).await?;
+
+        let result: Result<(), DbError> = async {
+            let exists: i64 =
+                sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM conversations WHERE user_id = ? AND id = ?)")
+                    .bind(user_id)
+                    .bind(&event.conversation_id)
+                    .fetch_one(&mut *connection)
+                    .await?;
+            if exists == 0 {
+                return Err(DbError::NotFound(format!(
+                    "Conversation '{}' not found",
+                    event.conversation_id
+                )));
+            }
+
+            // Stable replay order: MAX(turn_seq)+1 within the conversation, so
+            // events never collide even when `created_at` is identical. The
+            // caller-supplied `turn_seq` is ignored in favor of this derived value.
+            let next_seq: i64 =
+                sqlx::query_scalar("SELECT COALESCE(MAX(turn_seq), 0) + 1 FROM session_events WHERE conversation_id = ?")
+                    .bind(&event.conversation_id)
+                    .fetch_one(&mut *connection)
+                    .await?;
+
+            sqlx::query(
+                "INSERT INTO session_events \
+                 (id, conversation_id, turn_seq, event_kind, role, model, \
+                  input_json, output_json, token_usage_json, status, created_at) \
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            )
+            .bind(&event.id)
+            .bind(&event.conversation_id)
+            .bind(next_seq)
+            .bind(&event.event_kind)
+            .bind(&event.role)
+            .bind(&event.model)
+            .bind(&event.input_json)
+            .bind(&event.output_json)
+            .bind(&event.token_usage_json)
+            .bind(&event.status)
+            .bind(event.created_at)
+            .execute(&mut *connection)
+            .await?;
+
+            Ok(())
+        }
+        .await;
+
+        match result {
+            Ok(()) => {
+                sqlx::query("COMMIT").execute(&mut *connection).await?;
+                Ok(())
+            }
+            Err(e) => {
+                let _ = sqlx::query("ROLLBACK").execute(&mut *connection).await;
+                Err(e)
+            }
+        }
     }
 
     async fn upsert_message(&self, user_id: &str, message: &MessageRow) -> Result<(), DbError> {

@@ -6,7 +6,7 @@ use roseui_ai_agent::protocol::events::{
 };
 use roseui_api_types::{ConversationRuntimeSummary, WebSocketMessage};
 use roseui_common::{ErrorChain, normalize_keys_to_snake_case, now_ms};
-use roseui_db::models::MessageRow;
+use roseui_db::models::{MessageRow, SessionEventRow, redact_json, text_event};
 use roseui_db::{ConversationRowUpdate, DbError, IConversationRepository, MessageRowUpdate};
 use roseui_realtime::EventBroadcaster;
 use serde_json::json;
@@ -95,6 +95,43 @@ impl StreamPersistenceAdapter {
         self
     }
 
+    /// 追加一条轨迹事件到 session_events（脱敏后的 input/output）。
+    /// 失败仅告警，不影响主消息落库（轨迹是旁路、尽力而为）。
+    fn record_session_event(&self, event: SessionEventRow) {
+        let repo = self.repo.clone();
+        let user_id = self.user_id.clone();
+        tokio::spawn(async move {
+            if let Err(e) = repo.insert_session_event(&user_id, &event).await {
+                warn!(error = %ErrorChain(&e), "Failed to record session trace event");
+            }
+        });
+    }
+
+    /// 便捷封装：从工具调用数据构造并落库一条 `tool_call` 轨迹事件。
+    fn record_tool_event(
+        &self,
+        call_id: &str,
+        status: &str,
+        input: serde_json::Value,
+        output: serde_json::Value,
+        created_at: i64,
+    ) {
+        let event = SessionEventRow {
+            id: format!("trace_{call_id}"),
+            conversation_id: self.conversation_id.clone(),
+            turn_seq: 0, // 由 repo 派生 MAX+1
+            event_kind: "tool_call".to_string(),
+            role: Some("assistant".to_string()),
+            model: None,
+            input_json: redact_json(&input).to_string(),
+            output_json: redact_json(&output).to_string(),
+            token_usage_json: "{}".to_string(),
+            status: Some(status.to_string()),
+            created_at,
+        };
+        self.record_session_event(event);
+    }
+
     #[tracing::instrument(skip_all, fields(conversation_id = %self.conversation_id))]
     pub async fn complete_conversation(
         &self,
@@ -181,6 +218,17 @@ impl StreamPersistenceAdapter {
             };
             if let Err(e) = self.repo.insert_message(&self.user_id, &row).await {
                 log_persist_error(&e, "Failed to create streaming text segment");
+            } else {
+                self.record_session_event(text_event(
+                    segment.id.clone(),
+                    self.conversation_id.clone(),
+                    0,
+                    Some("assistant".to_string()),
+                    None,
+                    &segment.buffer,
+                    Some("work".to_string()),
+                    segment.created_at,
+                ));
             }
             segment.record_created = true;
         }
@@ -315,6 +363,17 @@ impl StreamPersistenceAdapter {
             };
             if let Err(e) = self.repo.insert_message(&self.user_id, &row).await {
                 log_persist_error(&e, "Failed to create final fallback message");
+            } else {
+                self.record_session_event(text_event(
+                    self.msg_id.clone(),
+                    self.conversation_id.clone(),
+                    0,
+                    Some("assistant".to_string()),
+                    None,
+                    final_text,
+                    Some(status.to_owned()),
+                    now_ms(),
+                ));
             }
         }
 
@@ -391,10 +450,11 @@ impl StreamPersistenceAdapter {
             "duration_ms": duration_ms,
         })
         .to_string();
+        let seg_id = segment.id.clone();
         let row = MessageRow {
-            id: segment.id.clone(),
+            id: seg_id.clone(),
             conversation_id: self.conversation_id.clone(),
-            msg_id: Some(segment.id),
+            msg_id: Some(seg_id.clone()),
             r#type: "thinking".into(),
             content,
             position: Some("left".into()),
@@ -404,6 +464,17 @@ impl StreamPersistenceAdapter {
         };
         if let Err(e) = self.repo.insert_message(&self.user_id, &row).await {
             log_persist_error(&e, "Failed to persist thinking message");
+        } else {
+            self.record_session_event(text_event(
+                seg_id,
+                self.conversation_id.clone(),
+                0,
+                Some("assistant".to_string()),
+                None,
+                &segment.buffer,
+                Some("finish".to_string()),
+                segment.started_at,
+            ));
         }
     }
 
@@ -458,6 +529,19 @@ impl StreamPersistenceAdapter {
                 status,
                 "Upserted tool_call message"
             );
+            let input = serde_json::json!({
+                "name": data.name,
+                "args": data.args,
+                "input": data.input,
+            });
+            let output = serde_json::json!({ "output": data.output });
+            self.record_tool_event(
+                &data.call_id,
+                status,
+                input,
+                output,
+                now_ms(),
+            );
         }
     }
 
@@ -495,6 +579,16 @@ impl StreamPersistenceAdapter {
         };
         if let Err(e) = self.repo.upsert_message(&self.user_id, &row).await {
             error!(error = %ErrorChain(&e), "Failed to upsert acp_tool_call message");
+        } else {
+            let input = serde_json::json!({ "raw_input": data.update.raw_input });
+            let output = serde_json::json!({ "raw_output": data.update.raw_output });
+            self.record_tool_event(
+                tool_call_id,
+                status,
+                input,
+                output,
+                now_ms(),
+            );
         }
     }
 
