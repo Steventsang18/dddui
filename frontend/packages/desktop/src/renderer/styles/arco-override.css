@@ -529,3 +529,24 @@ body[arco-theme='dark'] .arco-message-error {
   padding-bottom: 2px;
   background-color: var(--color-bg-popup);
 }
+
+/* ───────────────────────────────────────────────────────────────
+   Tooltip hint for the "?" workflow-guide button.
+
+   NOTE: a pure-CSS `::after` tooltip CANNOT be used here. The team
+   header (`.chat-layout-header--glass`) sets `contain: paint` AND the
+   Arco header wraps it in `overflow-hidden`, both of which clip any
+   child that crosses the header's bottom edge — so a below-trigger
+   CSS tooltip is always cut off by the content row beneath it. Even
+   `position: fixed` is clipped by `contain: paint`. The only robust
+   fix is to render the tooltip via a React portal into `document.body`
+   (outside the header's clipping context) with `position: fixed` using
+   viewport coordinates from getBoundingClientRect. See TeamPage.tsx.
+
+   注意：此处不能用纯 CSS `::after` 提示。团队页 header 设了
+   `contain: paint` 且外层 `overflow-hidden`，二者都会裁掉越过 header
+   底边的子元素，导致下方弹出的提示被内容栏挡住；`position: fixed`
+   也会被 `contain: paint` 裁。唯一根治办法是用 React portal 把提示
+   渲染到 document.body（脱离 header 裁剪上下文），配 position:fixed
+   + getBoundingClientRect 视口坐标。见 TeamPage.tsx。
+   ─────────────────────────────────────────────────────────────── */

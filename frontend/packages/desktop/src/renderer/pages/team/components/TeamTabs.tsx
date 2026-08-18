@@ -394,7 +394,7 @@ const TeamTabs: React.FC<TeamTabsProps> = ({ onTabClick, pendingCounts, warmingU
                 className={`flex items-center gap-6px px-10px rounded-8px text-13px font-500 whitespace-nowrap transition-colors duration-150 ${
                   memberOpsDisabled
                     ? 'text-[color:var(--text-disabled)] cursor-not-allowed'
-                    : 'text-[color:var(--text-secondary)] hover:text-[color:var(--brand)] hover:bg-[color:var(--bg-2)] cursor-pointer'
+                    : 'text-[color:var(--text-secondary)] hover:text-primary hover:bg-[color:var(--bg-2)] cursor-pointer'
                 }`}
               >
                 <Plus theme='outline' size='15' fill='currentColor' className='leading-none' />

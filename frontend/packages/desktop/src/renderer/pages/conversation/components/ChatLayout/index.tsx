@@ -276,7 +276,7 @@ const ChatLayout: React.FC<{
                 if (window.innerWidth < 768 && !rightSiderCollapsed) setRightSiderCollapsed(true);
               }}
             >
-              <ArcoLayout.Content className='flex flex-col flex-1 bg-1 overflow-hidden'>
+              <ArcoLayout.Content className='flex flex-col flex-1 bg-base overflow-hidden'>
                 {props.children}
               </ArcoLayout.Content>
             </div>

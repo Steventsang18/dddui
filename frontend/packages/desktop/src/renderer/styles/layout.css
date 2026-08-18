@@ -22,13 +22,13 @@
   background-color: var(--bg-6);
 }
 
-/* Section title text — light mode uses text-t-tertiary (#86909c).
-   In dark mode, the tertiary token (#5a5a5a) is too dim on #0e0e0e,
-   while --text-secondary (#ced3da) is too bright; pick a mid-gray
-   shared by sidebar section titles and settings group headers. */
+/* Section title text — light mode uses text-t-tertiary (--bg-6).
+   In dark mode, the tertiary token (--bg-6) is too dim on --bg-base,
+   while --text-secondary is too bright; --text-quaternary is the
+   mid-gray shared by sidebar section titles and settings group headers. */
 [data-theme='dark'] .sider-section-title,
 [data-theme='dark'] .settings-sider__group-header {
-  color: #9098a1;
+  color: var(--text-quaternary);
 }
 
 /* Layout sider base styles */
@@ -260,4 +260,26 @@
     font-size: 14px !important;
     line-height: 20px !important;
   }
+}
+
+/* ───────────────────────────────────────────────────────────────
+   Card primitives (P1-3 — unified card language)
+   统一跨页面"卡片"外观：表面令牌 + 1px 发丝边框 + 圆角(radius-lg=12px)
+   + elevation 阴影。替代散写的 rd-8/12px + border + shadow-sm/md/lg 混用。
+   仅用于通用卡片；刻意大圆角/条件边框的签名卡（Setup hero、SkillsHub
+   大区卡、虚线空态块）不在范围内，以保留设计意图。
+   防御性 fallback：确保装饰主题即便未定义 --border-base / --bg-* 也不缺样式。
+   ─────────────────────────────────────────────────────────────── */
+.card {
+  background-color: var(--bg-1, var(--color-bg-1));
+  border: 1px solid var(--border-base, var(--color-border-2, #e5e6eb));
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--elevation-1);
+}
+
+.card-raised {
+  background-color: var(--bg-2, var(--color-bg-2));
+  border: 1px solid var(--border-base, var(--color-border-2, #e5e6eb));
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--elevation-2);
 }

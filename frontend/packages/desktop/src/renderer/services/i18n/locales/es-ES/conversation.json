@@ -618,5 +618,13 @@
       "empty": "Ningún archivo coincide",
       "limitReached": "Mostrando los primeros {{count}} — afina la búsqueda"
     }
+  },
+  "trace": {
+    "button": "Traza",
+    "title": "Traza de la conversación",
+    "filterModel": "Filtrar por modelo",
+    "clear": "Limpiar",
+    "loading": "Cargando…",
+    "empty": "Ningún evento de traza coincide con los filtros"
   }
 }

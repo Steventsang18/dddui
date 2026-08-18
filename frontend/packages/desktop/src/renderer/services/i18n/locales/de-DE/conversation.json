@@ -618,5 +618,13 @@
       "empty": "Keine passenden Dateien",
       "limitReached": "Erste {{count}} werden angezeigt — eingrenzen"
     }
+  },
+  "trace": {
+    "button": "Verlauf",
+    "title": "Gesprächsverlauf",
+    "filterModel": "Nach Modell filtern",
+    "clear": "Zurücksetzen",
+    "loading": "Wird geladen…",
+    "empty": "Keine Verlaufsereignisse für die aktuellen Filter"
   }
 }

@@ -617,5 +617,13 @@
       "empty": "沒有符合的檔案",
       "limitReached": "僅顯示前 {{count}} 項 — 請縮小範圍"
     }
+  },
+  "trace": {
+    "button": "軌跡",
+    "title": "對話軌跡",
+    "filterModel": "依模型篩選",
+    "clear": "清空",
+    "loading": "載入中…",
+    "empty": "此篩選條件下沒有軌跡事件"
   }
 }

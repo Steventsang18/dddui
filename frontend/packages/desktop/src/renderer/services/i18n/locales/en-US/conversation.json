@@ -517,7 +517,12 @@
     "output": "Output",
     "thought": "Thinking",
     "cachedRead": "Cache read",
-    "cachedWrite": "Cache write"
+    "cachedWrite": "Cache write",
+    "tokens": "tokens",
+    "upload": "Upload",
+    "download": "Download",
+    "elapsed": "Elapsed",
+    "contextRing": "Context usage percentage"
   },
   "skill_generator": {
     "title": "Generate Skill/Rule",
@@ -618,5 +623,13 @@
       "empty": "No files match",
       "limitReached": "Showing first {{count}} — refine to narrow"
     }
+  },
+  "trace": {
+    "button": "Trace",
+    "title": "Conversation Trace",
+    "filterModel": "Filter by model",
+    "clear": "Clear",
+    "loading": "Loading…",
+    "empty": "No trace events match the current filters"
   }
 }

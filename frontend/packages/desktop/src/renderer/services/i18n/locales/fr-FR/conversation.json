@@ -616,5 +616,13 @@
       "empty": "Aucun fichier correspondant",
       "limitReached": "Affichage des {{count}} premiers — affinez la recherche"
     }
+  },
+  "trace": {
+    "button": "Trace",
+    "title": "Historique de la conversation",
+    "filterModel": "Filtrer par modèle",
+    "clear": "Effacer",
+    "loading": "Chargement…",
+    "empty": "Aucun événement de trace ne correspond aux filtres"
   }
 }

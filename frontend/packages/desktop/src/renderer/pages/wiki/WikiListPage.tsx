@@ -272,7 +272,7 @@ const WikiListPage: React.FC = () => {
   const displayPages = isSearching ? searchResults : pages;
 
   return (
-    <div className='flex flex-col h-full bg-1'>
+    <div className='flex flex-col h-full bg-base'>
       {/* Header */}
       <div className='shrink-0 px-20px pt-20px pb-12px border-b border-fill-3'>
         <div className='flex items-center justify-between mb-12px'>
@@ -588,7 +588,7 @@ const WikiListPage: React.FC = () => {
           {templates.map((tpl) => (
             <div
               key={tpl}
-              className='flex items-center justify-between p-12px rd-8px border border-fill-3 hover:bg-fill-2 transition-colors'
+              className='flex items-center justify-between p-12px card hover:bg-fill-2 transition-colors'
             >
               <div>
                 <div className='text-15px font-500 text-t-primary'>{t(`wiki.template_${tpl}`)}</div>

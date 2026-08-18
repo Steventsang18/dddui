@@ -10,6 +10,7 @@ import { useConversationContextSafe } from '@/renderer/hooks/context/Conversatio
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import { useLocalFilePreview } from '@/renderer/pages/conversation/Preview/hooks/useLocalFilePreview';
 import { iconColors } from '@/renderer/styles/colors';
+import ContextUsageIndicator from '@/renderer/components/agent/ContextUsageIndicator';
 import { Alert, Message, Tooltip } from '@arco-design/web-react';
 import { Copy } from '@icon-park/react';
 import classNames from 'classnames';
@@ -144,7 +145,12 @@ const useFormatContent = (content: string) => {
   }, [content]);
 };
 
-const MessageText: React.FC<{ message: IMessageText; showCopyRow?: boolean }> = ({ message, showCopyRow = true }) => {
+const MessageText: React.FC<{
+  message: IMessageText;
+  showCopyRow?: boolean;
+  /** Whether this message is the latest assistant text (only it shows the "压缩对话" action). */
+  isLatestAssistant?: boolean;
+}> = ({ message, showCopyRow = true, isLatestAssistant = false }) => {
   const logos = useAgentLogos();
   // Filter think tags from content before rendering
   // 在渲染前过滤 think 标签
@@ -300,15 +306,67 @@ const MessageText: React.FC<{ message: IMessageText; showCopyRow?: boolean }> = 
             of the turn shows this row (showCopyRow); user messages always do. */}
         {!isMobile && showCopyRow && (
           <div
-            className={classNames('h-32px flex items-center mt-4px gap-8px', {
+            className={classNames('min-h-32px flex items-center mt-4px gap-8px', {
               'flex-row-reverse': isUserMessage,
+              'w-full': !isUserMessage,
             })}
           >
-            {copyButton}
-            {message.created_at && (
-              <span className='text-12px text-t-secondary opacity-0 group-hover:opacity-100 transition-opacity select-none'>
-                {formatMessageTime(message.created_at)}
-              </span>
+            {/* 对话统计条：五图标（Clock/Tokens/Upload/Download/上下文圆环）靠最左。
+                数据规则：正在生成的那条回复显示实时数据（active turn 实时 tick）；
+                已完成的回复显示各自冻结的 per-reply stats（msgUsageStats），
+                互不影响、不随新对话刷新跳动。 */}
+            {!isUserMessage &&
+              (() => {
+                const msgId = message.msg_id;
+                const frozenStats = msgId ? conversationContext?.msgUsageStats?.[msgId] : undefined;
+                const isActiveTurn = Boolean(
+                  conversationContext?.running && msgId && msgId === conversationContext.activeMsgId
+                );
+                const liveUsage = conversationContext?.tokenUsage;
+                if (!frozenStats && !(isActiveTurn && liveUsage)) {
+                  return null;
+                }
+                const tokenUsage = frozenStats
+                  ? {
+                      total_tokens: frozenStats.total_tokens ?? 0,
+                      breakdown: {
+                        input_tokens: frozenStats.input_tokens,
+                        output_tokens: frozenStats.output_tokens,
+                      },
+                      elapsed_ms: frozenStats.elapsed_ms,
+                      context_used: frozenStats.context_used,
+                    }
+                  : (liveUsage ?? null);
+                return (
+                  <ContextUsageIndicator
+                    tokenUsage={tokenUsage}
+                    context_limit={conversationContext?.context_limit ?? 0}
+                    turnStartedAtMs={isActiveTurn ? conversationContext?.turnStartedAtMs : null}
+                    running={isActiveTurn}
+                    showCompact={Boolean(conversationContext?.canCompact) && isLatestAssistant}
+                    compacting={Boolean(conversationContext?.compacting)}
+                    onCompact={conversationContext?.onCompact}
+                  />
+                );
+              })()}
+            {isUserMessage ? (
+              <>
+                {copyButton}
+                {message.created_at && (
+                  <span className='text-12px text-t-secondary opacity-0 group-hover:opacity-100 transition-opacity select-none'>
+                    {formatMessageTime(message.created_at)}
+                  </span>
+                )}
+              </>
+            ) : (
+              <div className='flex items-center gap-8px ml-auto'>
+                {copyButton}
+                {message.created_at && (
+                  <span className='text-12px text-t-secondary opacity-0 group-hover:opacity-100 transition-opacity select-none'>
+                    {formatMessageTime(message.created_at)}
+                  </span>
+                )}
+              </div>
             )}
           </div>
         )}

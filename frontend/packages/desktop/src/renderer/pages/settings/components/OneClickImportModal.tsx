@@ -425,11 +425,11 @@ const OneClickImportModal: React.FC<OneClickImportModalProps> = ({
           <RoseSteps current={currentStep} size='small'>
             <RoseSteps.Step
               title={t('settings.mcpStepSelectAgent')}
-              icon={currentStep > 1 ? <Check theme='filled' size={16} fill='#165dff' /> : undefined}
+              icon={currentStep > 1 ? <Check theme='filled' size={16} fill='var(--primary)' /> : undefined}
             />
             <RoseSteps.Step
               title={t('settings.mcpStepFetchTools')}
-              icon={currentStep > 2 ? <Check theme='filled' size={16} fill='#165dff' /> : undefined}
+              icon={currentStep > 2 ? <Check theme='filled' size={16} fill='var(--primary)' /> : undefined}
             />
             <RoseSteps.Step title={t('settings.mcpStepImportSuccess')} />
           </RoseSteps>

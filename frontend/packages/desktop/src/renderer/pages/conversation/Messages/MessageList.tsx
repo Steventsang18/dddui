@@ -223,6 +223,7 @@ const MessageItem: React.FC<{
   highlighted?: boolean;
   rowWidthClass: string;
   showCopyRow?: boolean;
+  isLatestAssistant?: boolean;
 }> = React.memo(
   HOC((props) => {
     const { message, highlighted, rowWidthClass } = props as {
@@ -254,16 +255,20 @@ const MessageItem: React.FC<{
     ({
       message,
       showCopyRow,
+      isLatestAssistant,
     }: {
       message: TMessage;
       highlighted?: boolean;
       rowWidthClass: string;
       showCopyRow?: boolean;
+      isLatestAssistant?: boolean;
     }) => {
       const { t } = useTranslation();
       switch (message.type) {
         case 'text':
-          return <MessageText message={message} showCopyRow={showCopyRow}></MessageText>;
+          return (
+            <MessageText message={message} showCopyRow={showCopyRow} isLatestAssistant={isLatestAssistant}></MessageText>
+          );
         case 'tips':
           return <MessageTips message={message}></MessageTips>;
         case 'tool_call':
@@ -296,7 +301,8 @@ const MessageItem: React.FC<{
     prev.message.type === next.message.type &&
     prev.highlighted === next.highlighted &&
     prev.rowWidthClass === next.rowWidthClass &&
-    prev.showCopyRow === next.showCopyRow
+    prev.showCopyRow === next.showCopyRow &&
+    prev.isLatestAssistant === next.isLatestAssistant
 );
 
 const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }> = ({ emptySlot }) => {
@@ -465,6 +471,25 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
     if (isProcessing && lastTurnTextId) ids.delete(lastTurnTextId);
     return ids;
   }, [processedList, isProcessing]);
+
+  // Id of the latest assistant text message. Only it offers the "压缩对话"
+  // action inside the context-ring popover (historical rows stay read-only).
+  const lastAssistantTextId = useMemo(() => {
+    let id: string | undefined;
+    for (const item of processedList) {
+      if (
+        'type' in item &&
+        (item.type === 'file_summary' || item.type === 'tool_summary' || item.type === 'artifact')
+      ) {
+        continue;
+      }
+      const message = item as TMessage;
+      if (message.position !== 'right' && message.type === 'text') {
+        id = message.id;
+      }
+    }
+    return id;
+  }, [processedList]);
 
   // Use auto-scroll hook
   const {
@@ -666,6 +691,7 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
     const message = item as TMessage;
     // User messages keep their own copy row; AI text only shows it at the turn end.
     const showCopyRow = message.position !== 'left' || message.type !== 'text' || aiCopyRowTextIds.has(message.id);
+    const isLatestAssistant = message.type === 'text' && message.position !== 'right' && message.id === lastAssistantTextId;
     return (
       <MessageItem
         message={message}
@@ -673,6 +699,7 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
         highlighted={highlighted}
         rowWidthClass={rowWidthClass}
         showCopyRow={showCopyRow}
+        isLatestAssistant={isLatestAssistant}
       ></MessageItem>
     );
   };

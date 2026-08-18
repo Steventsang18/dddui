@@ -623,5 +623,13 @@
       "empty": "Nenhum arquivo corresponde",
       "limitReached": "Mostrando os primeiros {{count}} — refine a busca"
     }
+  },
+  "trace": {
+    "button": "Rastro",
+    "title": "Rastro da conversa",
+    "filterModel": "Filtrar por modelo",
+    "clear": "Limpar",
+    "loading": "Carregando…",
+    "empty": "Nenhum evento de rastro corresponde aos filtros"
   }
 }

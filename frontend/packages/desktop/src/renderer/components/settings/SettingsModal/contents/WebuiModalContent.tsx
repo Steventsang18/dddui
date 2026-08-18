@@ -741,7 +741,7 @@ const WebuiModalContent: React.FC = () => {
 
               <div className='flex flex-col items-center gap-12px'>
                 {/* 二维码显示区域 / QR Code display area */}
-                <div className='p-12px bg-fill-1 border border-line rd-10px'>
+                <div className='p-12px card'>
                   {qrLoading ? (
                     <div className='w-140px h-140px flex items-center justify-center'>
                       <span className='text-14px text-t-tertiary'>{t('common.loading')}</span>

@@ -4,7 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { IConversationMcpStatus } from '@/common/config/storage';
+import type {
+  IConversationMcpStatus,
+  TokenUsageData,
+  TurnUsageStats,
+} from '@/common/config/storage';
 import React, { createContext, useContext } from 'react';
 
 /**
@@ -62,6 +66,64 @@ export interface ConversationContextValue {
    * Assistant id bound to this conversation snapshot, if any.
    */
   assistantId?: string;
+
+  /**
+   * Live session-level token usage (cumulative context window occupancy).
+   * Surfaced under each assistant message so the user sees the current
+   * context-water-level ring without leaving the transcript.
+   */
+  tokenUsage?: TokenUsageData | null;
+
+  /**
+   * Agent-reported context window size (denominator for the occupancy ring).
+   * 0 / undefined when the agent does not report a window.
+   */
+  context_limit?: number;
+
+  /**
+   * Absolute start timestamp (ms epoch) of the in-flight turn, if any. Drives
+   * the live "运行耗时" metric in the context ring. Null when no turn runs.
+   */
+  turnStartedAtMs?: number | null;
+
+  /**
+   * Whether a turn is currently streaming. True drives the live elapsed
+   * ticker in the context ring.
+   */
+  running?: boolean;
+
+  /**
+   * msg_id of the assistant message whose turn is currently in flight. Only
+   * that message renders live (ticking) metrics; historical replies fall back
+   * to their own frozen `msgUsageStats` and stay untouched.
+   */
+  activeMsgId?: string | null;
+
+  /**
+   * Per-message frozen usage snapshots (msg_id → turn stats). Historical
+   * replies render these instead of the live session state, so a completed
+   * reply's elapsed/tokens never change when a new turn starts.
+   */
+  msgUsageStats?: Record<string, TurnUsageStats>;
+
+  /**
+   * Whether the platform supports context compaction (`/compact`) for this
+   * conversation. When true, the context-ring popover offers a "压缩对话"
+   * action (only on the latest assistant message).
+   */
+  canCompact?: boolean;
+
+  /**
+   * Whether a compaction turn is currently in flight. Drives the disabled /
+   * spinner state of the "压缩对话" button.
+   */
+  compacting?: boolean;
+
+  /**
+   * Triggers context compaction for the conversation. Provided by the aionrs
+   * platform chat component; resolves once the compaction turn completes.
+   */
+  onCompact?: () => Promise<void>;
 }
 
 /**

@@ -122,6 +122,26 @@ pub struct CancelConversationResponse {
     pub runtime: ConversationRuntimeSummary,
 }
 
+/// Response for `POST /api/conversations/:id/compact`.
+///
+/// The compaction runs as a hidden in-conversation turn (no user message is
+/// persisted), so only the turn outcome is surfaced here.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompactConversationResponse {
+    pub conversation_id: String,
+    pub turn_id: String,
+    #[serde(rename = "status")]
+    pub status: CompactConversationStatus,
+}
+
+/// Status of a completed context-compaction turn.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CompactConversationStatus {
+    Completed,
+    Failed,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ConversationRuntimeStateKind {

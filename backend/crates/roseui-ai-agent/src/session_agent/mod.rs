@@ -657,10 +657,52 @@ impl SessionAgentTask {
         }
     }
 
-    /// Session usage snapshot. Not tracked on the capabilities snapshot yet;
-    /// usage rides the `UsageDelta` stream event. Return None for now.
+    /// Session usage snapshot (`used` / `size` tokens). For backends that
+    /// advertise `query_session_info` (claude/codex) we issue a one-shot
+    /// `QuerySessionInfo{ContextUsage}` and await the `SessionInfo` reply on the
+    /// event stream; otherwise fall back to `None` (the live `UsageDelta` stream
+    /// is the alternative source for non-capable backends).
     pub async fn get_usage(&self) -> Result<Option<serde_json::Value>, AgentError> {
-        Ok(None)
+        use roseui_session::SessionInfoKind;
+        use tokio::time::{Duration, timeout};
+
+        if !self.backend.capabilities().supported_commands.query_session_info {
+            return Ok(None);
+        }
+
+        // Subscribe a fresh view of the broadcast event stream, then dispatch the
+        // query. The reply arrives as `SessionEvent::SessionInfo{context_usage}`.
+        let mut events = self.backend.events();
+        self.backend
+            .dispatch(Command::QuerySessionInfo {
+                kind: SessionInfoKind::ContextUsage,
+            })
+            .await
+            .map_err(|e| AgentError::internal(format!("query_session_info dispatch failed: {e}")))?;
+
+        // Bound the wait so a silent backend never hangs the HTTP handler.
+        let wait = timeout(Duration::from_secs(5), async {
+            use futures_util::StreamExt;
+            while let Some(env) = events.next().await {
+                if let roseui_session::SessionEvent::SessionInfo { context_usage: Some(usage), .. } = env.event {
+                    return Some(usage);
+                }
+            }
+            None
+        })
+        .await
+        .unwrap_or(None);
+
+        let Some(usage) = wait else {
+            return Ok(None);
+        };
+
+        let mut value = serde_json::json!({
+            "used": usage.used,
+            "size": usage.max,
+        });
+        roseui_common::normalize_keys_to_snake_case(&mut value);
+        Ok(Some(value))
     }
 
     /// Slash commands from the live capabilities snapshot.

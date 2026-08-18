@@ -20,11 +20,14 @@ import {
 } from '@renderer/pages/conversation/Messages/hooks';
 import { usePendingConfirmationsRecovery } from '@renderer/pages/conversation/Messages/usePendingConfirmationsRecovery';
 import HOC from '@renderer/utils/ui/HOC';
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import LocalImageView from '@renderer/components/media/LocalImageView';
 import type { TeamSendBoxRuntime } from '@/renderer/pages/team/components/teamSendRuntime';
 import AionrsSendBox from './AionrsSendBox';
 import type { AionrsModelSelection } from './useAionrsModelSelection';
+import { useAionrsMessage } from './useAionrsMessage';
+import { modeOptionsFromCapabilities } from './useAionrsModelSelection';
+import type { AgentModeOption } from '@/renderer/utils/model/agentTypes';
 
 const AionrsChat: React.FC<{
   conversation_id: string;
@@ -61,6 +64,20 @@ const AionrsChat: React.FC<{
   useEffect(() => {
     updateLocalImage({ root: workspace });
   }, [workspace]);
+
+  // 单实例：Chat 持有 useAionrsMessage（tokenUsage/context_limit + 模式下发），
+  // 通过 prop 共享给 SendBox，避免双 hook 实例重复订阅流。
+  const [dynamicModes, setDynamicModes] = useState<AgentModeOption[]>([]);
+  const aionrsMessage = useAionrsMessage(conversation_id, {
+    model: modelSelection.current_model?.use_model,
+    onConfigChanged: (capabilities) => {
+      const modes = (capabilities as { modes?: string[] })?.modes;
+      if (modes && modes.length > 0) {
+        setDynamicModes(modeOptionsFromCapabilities(modes));
+      }
+    },
+  });
+
   const conversationValue = useMemo<ConversationContextValue>(() => {
     return {
       conversation_id: conversation_id,
@@ -71,8 +88,17 @@ const AionrsChat: React.FC<{
       loadedMcpServers,
       loadedMcpStatuses,
       assistantId,
+      tokenUsage: aionrsMessage.tokenUsage,
+      context_limit: aionrsMessage.context_limit,
+      turnStartedAtMs: aionrsMessage.turnStartedAtMs,
+      running: aionrsMessage.running,
+      activeMsgId: aionrsMessage.activeMsgId,
+      msgUsageStats: aionrsMessage.msgUsageStats,
+      canCompact: true,
+      compacting: aionrsMessage.compacting,
+      onCompact: aionrsMessage.onCompact,
     };
-  }, [conversation_id, workspace, cron_job_id, loadedSkills, loadedMcpServers, loadedMcpStatuses, assistantId]);
+  }, [conversation_id, workspace, cron_job_id, loadedSkills, loadedMcpServers, loadedMcpStatuses, assistantId, aionrsMessage.tokenUsage, aionrsMessage.context_limit, aionrsMessage.turnStartedAtMs, aionrsMessage.running, aionrsMessage.activeMsgId, aionrsMessage.msgUsageStats, aionrsMessage.compacting, aionrsMessage.onCompact]);
 
   return (
     <ConversationProvider value={conversationValue}>
@@ -88,6 +114,8 @@ const AionrsChat: React.FC<{
             agent_name={agent_name}
             teamSendMessage={teamSendMessage}
             teamRuntime={teamRuntime}
+            messageState={aionrsMessage}
+            dynamicModes={dynamicModes}
           />
         </div>
       </ConversationArtifactProvider>

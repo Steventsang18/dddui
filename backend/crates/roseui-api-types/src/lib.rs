@@ -81,8 +81,9 @@ pub use confirmation::{ApprovalCheckQuery, ApprovalCheckResponse, ConfirmRequest
 pub use connection_test::TestBedrockConnectionRequest;
 pub use conversation::{
     ActiveCountResponse, AssistantConversationOverridesRequest, AssistantConversationRequest,
-    CancelConversationRequest, CancelConversationResponse, CloneConversationRequest, ConversationArtifactKind,
-    ConversationArtifactListResponse, ConversationArtifactResponse, ConversationArtifactStatus,
+    CancelConversationRequest, CancelConversationResponse, CloneConversationRequest, CompactConversationResponse,
+    CompactConversationStatus, ConversationArtifactKind, ConversationArtifactListResponse, ConversationArtifactResponse,
+    ConversationArtifactStatus,
     ConversationAssistantIdentityResponse, ConversationListResponse, ConversationMcpStatus, ConversationMcpStatusKind,
     ConversationResponse, ConversationRuntimeStateKind, ConversationRuntimeSummary, CreateConversationRequest,
     EnsureConversationRuntimeResponse, ListConversationsQuery, ListMessagesQuery, MessageListResponse, MessageResponse,
@@ -171,6 +172,7 @@ pub use team::{
     TeamRunSource, TeamRunStateResponse, TeamRunStatus, TeamRunTargetRole, TeamRuntimeSeed,
     TeamSendMessageQueuedResponse, TeamSessionBinding, TeamSessionPhase, TeamSessionStatus, TeamSessionStatusPayload,
     TeamSlotBlockedReason, TeamSlotWorkChangedPayload, TeamSlotWorkPayload, TeamSlotWorkState, TeammateMessagePayload,
+    StartWorkflowRequest, StartWorkflowResponse,
 };
 pub use team_mcp::{TEAM_MCP_SERVER_NAME, TeamMcpStdioConfig, WIKI_MCP_SERVER_NAME, WikiMcpStdioConfig};
 pub use team_tools::{

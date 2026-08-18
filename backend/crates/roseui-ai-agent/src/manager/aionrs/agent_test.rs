@@ -332,7 +332,10 @@ async fn runtime_can_emit_error_and_finish() {
     // We emit directly for the Finish broadcast path test:
     agent
         .runtime
-        .emit(AgentStreamEvent::Finish(FinishEventData { session_id: None }));
+        .emit(AgentStreamEvent::Finish(FinishEventData {
+            session_id: None,
+            ..Default::default()
+        }));
 
     match rx.try_recv().unwrap() {
         AgentStreamEvent::Error(data) => assert_eq!(data.message, "test error"),

@@ -801,7 +801,7 @@ Please check your local CLI tool authentication status`,
           // popover shows the raw count — never a percentage against a
           // guessed denominator. No usage report at all → nothing.
           tokenUsage ? (
-            <ContextUsageIndicator tokenUsage={tokenUsage} context_limit={context_limit} size={24} />
+            <ContextUsageIndicator tokenUsage={tokenUsage} context_limit={context_limit} />
           ) : undefined
         }
       ></SendBox>

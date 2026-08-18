@@ -30,6 +30,7 @@ import { getConversationCreateErrorMessage } from '@/renderer/pages/conversation
 import GoogleModelSelector from '../platforms/gemini/GoogleModelSelector';
 import AionrsChat from '../platforms/aionrs/AionrsChat';
 import AionrsModelSelector from '../platforms/aionrs/AionrsModelSelector';
+import TraceButton from '@/renderer/components/conversation/TraceButton';
 import { useAionrsModelSelection } from '../platforms/aionrs/useAionrsModelSelection';
 import { useConversationRuntimeView } from '../runtime/useConversationRuntimeView';
 import { isLegacyReadOnlyConversationType } from '../utils/conversationRuntime';
@@ -204,6 +205,7 @@ const AionrsConversationPanel: React.FC<{ conversation: AionrsConversation; slid
     headerExtra: (
       <div className='flex items-center gap-8px'>
         <CronJobManager conversation_id={conversation.id} cron_job_id={cronJobId} />
+        {conversation && <TraceButton conversationId={conversation.id} />}
         {!isMobile && (
           <AionrsModelSelector
             selection={modelSelection}
@@ -368,6 +370,7 @@ const ChatConversation: React.FC<{
           <CronJobManager conversation_id={conversation.id} cron_job_id={cronJobId} />
         </div>
       )}
+      {conversation && <TraceButton conversationId={conversation.id} />}
       {modelSelector && <div className='shrink-0'>{modelSelector}</div>}
     </div>
   );

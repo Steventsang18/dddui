@@ -5,8 +5,20 @@
  */
 
 import type { IProvider, TProviderWithModel } from '@/common/config/storage';
+import type { AgentModeOption } from '@/renderer/utils/model/agentTypes';
 import { useModelProviderList } from '@/renderer/hooks/agent/useModelProviderList';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+
+/// 将后端 capability 上报的 mode 字符串转为展示标签（snake_case → Title Case）。
+export const toModeLabel = (value: string): string =>
+  value
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
+/// 把 capability modes 列表转成 `AgentModeSelector` 需要的选项数组。
+export const modeOptionsFromCapabilities = (modes: string[]): AgentModeOption[] =>
+  modes.map((value) => ({ value, label: toModeLabel(value) }));
 
 export type AionrsModelSelection = {
   current_model?: TProviderWithModel;

@@ -119,6 +119,7 @@ impl SessionRuntime {
         }
         let _ = self.tx.send(AgentStreamEvent::Finish(FinishEventData {
             session_id: self.session_id(),
+            ..Default::default()
         }));
     }
 }

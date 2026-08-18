@@ -619,5 +619,13 @@
       "empty": "Eşleşen dosya yok",
       "limitReached": "İlk {{count}} gösteriliyor — daraltın"
     }
+  },
+  "trace": {
+    "button": "İz",
+    "title": "Sohbet İzi",
+    "filterModel": "Modele göre filtrele",
+    "clear": "Temizle",
+    "loading": "Yükleniyor…",
+    "empty": "Mevcut filtrelere uyan iz olayı yok"
   }
 }

@@ -26,6 +26,7 @@ const TaskDetailPage = React.lazy(() => import('@renderer/pages/cron/ScheduledTa
 const TeamIndex = React.lazy(() => import('@renderer/pages/team'));
 const WikiListPage = React.lazy(() => import('@renderer/pages/wiki/WikiListPage'));
 const WikiDetailPage = React.lazy(() => import('@renderer/pages/wiki/WikiDetailPage'));
+const TracePage = React.lazy(() => import('@renderer/components/conversation/TracePage'));
 const Landing = React.lazy(() => import('@renderer/pages/Landing'));
 const Setup = React.lazy(() => import('@renderer/pages/Setup'));
 
@@ -84,6 +85,7 @@ const PanelRoute: React.FC<{ layout: React.ReactElement }> = ({ layout }) => {
           <Route element={<ProtectedLayout layout={layout} />}>
           <Route path='/guid' element={withRouteFallback(Guid)} />
           <Route path='/conversation/:id' element={withRouteFallback(Conversation)} />
+          <Route path='/conversation/:id/trace' element={withRouteFallback(TracePage)} />
           <Route
             path='/team/:id'
             element={TEAM_MODE_ENABLED ? withRouteFallback(TeamIndex) : <Navigate to='/guid' replace />}

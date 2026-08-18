@@ -1,0 +1,31 @@
+122:  border-color: #667eea;
+14:  --conversation-search-highlight-fg: #2563eb;
+220:  border-color: #667eea;
+225:  border-color: #667eea;
+234:  color: #e8546b;
+240:  background-color: #e81123;
+245:  background-color: #c10f1f;
+246:  color: #667eea;
+259:  border: solid #ffffff;
+261:  accent-color: #667eea;
+266:  color: #f0883e;
+316:  color: #b4b5bc;
+342:  background-color: #fef2f2;
+343:  color: #dc2626;
+344:  border: 1px solid #fecaca;
+348:  background-color: #f0fdf4;
+349:  color: #16a34a;
+350:  border: 1px solid #bbf7d0;
+404:  color: #a1a2aa !important;
+405:  -webkit-text-fill-color: #a1a2aa !important;
+41:  background: #262626;
+42:  border-color: #3a3a3a;
+48:  color: #86909c;
+505:  color: #b4b5bc !important;
+55:  --conversation-search-highlight-fg: #93c5fd;
+563:  background: #262626;
+629:            backgroundColor: isButtonDisabled ? undefined : '#000000',
+630:            borderColor: isButtonDisabled ? undefined : '#000000',
+7:  background-color: #d3d4d9 !important;
+8:  border-color: #d3d4d9 !important;
+98:  color: #a1a2aa !important;

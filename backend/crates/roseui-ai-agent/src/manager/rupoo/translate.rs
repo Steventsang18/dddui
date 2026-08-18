@@ -21,7 +21,7 @@
 use std::collections::HashSet;
 use std::sync::Mutex;
 
-use rupoo::llm::AgentEvent;
+use rupoo::llm::{AgentEvent, TokenUsage};
 
 use crate::protocol::events::{
     AgentStreamEvent, FinishEventData, StartEventData, TextEventData, ToolCallEventData,
@@ -141,9 +141,16 @@ impl EventTranslator {
         AgentStreamEvent::Start(StartEventData { session_id })
     }
 
-    /// Emitted once when a turn converges.
-    pub fn finish_event(session_id: Option<String>) -> AgentStreamEvent {
-        AgentStreamEvent::Finish(FinishEventData { session_id })
+    /// Emitted once when a turn converges. `usage` carries the turn's prompt /
+    /// completion token counts when the engine reports them (the per-reply
+    /// input/output data sizes shown in the frontend).
+    pub fn finish_event(session_id: Option<String>, usage: Option<TokenUsage>) -> AgentStreamEvent {
+        AgentStreamEvent::Finish(FinishEventData {
+            session_id,
+            input_tokens: usage.map(|u| u.prompt_tokens),
+            output_tokens: usage.map(|u| u.completion_tokens),
+            elapsed_ms: None,
+        })
     }
 }
 

@@ -52,6 +52,13 @@
   margin-bottom: 26px;
 }
 
+.setup-brand-logo {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .setup-title {
   font-size: 26px;
   font-weight: 700;

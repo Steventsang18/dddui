@@ -51,7 +51,6 @@ import { Brain, MagicHat, Shield } from '@icon-park/react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { classifyConversationBusyError } from '../conversationBusyError';
-import { useAionrsMessage } from './useAionrsMessage';
 import type { AionrsModelSelection } from './useAionrsModelSelection';
 
 const configErrorMessageKey = (error: unknown) => {
@@ -61,15 +60,6 @@ const configErrorMessageKey = (error: unknown) => {
   if (errorKind === 'config_update_in_progress') return 'agent.config.busy';
   return 'agent.config.failed';
 };
-
-const toModeLabel = (value: string): string =>
-  value
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-
-const modeOptionsFromCapabilities = (modes: string[]): AgentModeOption[] =>
-  modes.map((value) => ({ value, label: toModeLabel(value) }));
 
 const useAionrsSendBoxDraft = getSendBoxDraftHook('aionrs', {
   _type: 'aionrs',
@@ -121,8 +111,9 @@ const AionrsSendBox: React.FC<{
   agent_name?: string;
   teamSendMessage?: (payload: { input: string; files: ChatFileRef[] }) => Promise<void>;
   teamRuntime?: TeamSendBoxRuntime;
-}> = ({ conversation_id, modelSelection, session_mode, agent_name, teamSendMessage, teamRuntime }) => {
-  const [dynamicModes, setDynamicModes] = useState<AgentModeOption[]>([]);
+  messageState: ReturnType<typeof useAionrsMessage>;
+  dynamicModes: AgentModeOption[];
+}> = ({ conversation_id, modelSelection, session_mode, agent_name, teamSendMessage, teamRuntime, messageState, dynamicModes }) => {
   const [currentMode, setCurrentMode] = useState<string | undefined>(session_mode);
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
   const layout = useLayoutContext();
@@ -141,18 +132,14 @@ const AionrsSendBox: React.FC<{
   const { current_model } = modelSelection;
   const teamPermission = useTeamPermission();
   const propagateMode = teamPermission?.propagateMode;
-
-  const { thought, running, turnStartedAtMs, setActiveMsgId, setWaitingResponse, resetState } = useAionrsMessage(
-    conversation_id,
-    {
-      onConfigChanged: (capabilities) => {
-        const modes = (capabilities as { modes?: string[] })?.modes;
-        if (modes && modes.length > 0) {
-          setDynamicModes(modeOptionsFromCapabilities(modes));
-        }
-      },
-    }
-  );
+  const {
+    thought,
+    running,
+    turnStartedAtMs,
+    setActiveMsgId,
+    setWaitingResponse,
+    resetState,
+  } = messageState;
   const runtimeView = useConversationRuntimeView(conversation_id);
   const { markSendStarted, markSendAccepted, markSendFailed } = runtimeView;
 

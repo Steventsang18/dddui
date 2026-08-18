@@ -190,6 +190,46 @@ export interface TokenUsageData {
   breakdown?: TokenUsageBreakdown;
   /** Cumulative session cost as reported by the agent */
   cost?: TokenUsageCost;
+  /**
+   * Wall-clock duration (ms) of the last completed turn, persisted by the
+   * backend so the elapsed (Clock) metric stays visible on every historical
+   * reply instead of only while a turn is streaming.
+   */
+  elapsed_ms?: number;
+  /**
+   * Tokens currently occupying the agent's context window (the live /usage
+   * snapshot's `used`). Unlike `total_tokens` (a cumulative session counter
+   * that grows every turn), this is the actual context footprint and is the
+   * correct numerator for the context-ring percentage. Absent on platforms
+   * that don't report it (the ring then falls back to `total_tokens`).
+   */
+  context_used?: number;
+}
+
+/**
+ * Per-reply usage snapshot frozen onto one assistant message when its turn
+ * completes. `total_tokens` is the cumulative conversation total at that
+ * moment; the other fields are this reply's own counters. Persisted in
+ * `conversation.extra.usage_by_msg` (keyed by msg_id) so every historical
+ * reply keeps its own frozen stats after a reload, instead of inheriting the
+ * latest turn's values.
+ */
+export interface TurnUsageStats {
+  /** Cumulative conversation total tokens at the moment this reply finished. */
+  total_tokens?: number;
+  /** This reply's input (上行) token count. */
+  input_tokens?: number;
+  /** This reply's output (下行) token count. */
+  output_tokens?: number;
+  /** This reply's wall-clock duration (ms), frozen on completion. */
+  elapsed_ms?: number;
+  /**
+   * Real context-window footprint at the moment this reply finished (the
+   * live /usage snapshot's `used`). The context ring uses this instead of
+   * `total_tokens` so a historical reply's percentage never exceeds the
+   * window just because the session-wide cumulative counter grew.
+   */
+  context_used?: number;
 }
 
 export type TChatConversation =
@@ -229,6 +269,8 @@ export type TChatConversation =
           acp_session_updated_at?: number;
           /** Last context usage from usage_update */
           last_token_usage?: TokenUsageData;
+          /** Per-message frozen usage snapshots: msg_id → turn stats */
+          usage_by_msg?: Record<string, TurnUsageStats>;
           /** Context window capacity from usage_update */
           last_context_limit?: number;
           /** Persisted session mode for resume support / 持久化的会话模式，用于恢复 */
@@ -434,6 +476,8 @@ export type TChatConversation =
         is_health_check?: boolean;
         /** Last token usage stats */
         last_token_usage?: TokenUsageData;
+        /** Per-message frozen usage snapshots: msg_id → turn stats */
+        usage_by_msg?: Record<string, TurnUsageStats>;
         /** Cron job ID that spawned this conversation */
         cron_job_id?: string;
       }

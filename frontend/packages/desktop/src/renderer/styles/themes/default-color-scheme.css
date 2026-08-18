@@ -36,6 +36,7 @@
   --color-text-1: #000000; /* Arco 主文字 — 与 --text-primary 对齐 */
   --text-secondary: #454d5f; /* 次要文字 — 加深至 ~7.5:1 对比度 */
   --text-disabled: #c9cdd4; /* 禁用文字 */
+  --text-quaternary: #a9aeb8; /* 四级文字（比 tertiary 更淡，暗色下用于侧栏分组头/区块标题） */
 
   /* Semantic Colors - Light Mode */
   --primary: #165dff;
@@ -48,10 +49,17 @@
   --border-base: #e5e6eb; /* 基础边框 */
   --border-light: #f2f3f5; /* 浅色边框 */
 
-  /* Brand Colors - Light Mode */
+  /* Brand Colors - Light Mode
+   * Dual-tone rule (P0-2): --brand (purple) is reserved for BRAND / DECORATION
+   * surfaces only - logo, brand headers, team accent, selection-reply highlight.
+   * Functional / interactive accent is --primary (blue): focus rings, selected
+   * controls, links, progress. --color-brand-fill / --color-brand-bg are aliases
+   * of --brand / --brand-light so the brand family stays a single source of truth. */
   --brand: #7583b2; /* 品牌色 */
   --brand-light: #eff0f6; /* 品牌浅色背景 */
   --brand-hover: #b5bcd6; /* 品牌色悬停 */
+  --color-brand-fill: var(--brand);
+  --color-brand-bg: var(--brand-light);
 
   /* Message & UI Component Colors - Light Mode */
   --message-user-bg: #e9efff; /* 用户消息背景（浅蓝） */
@@ -124,6 +132,8 @@
   --brand: #a1aacb; /* 品牌色 */
   --brand-light: #3d4150; /* 品牌深色背景 */
   --brand-hover: #6a749b; /* 品牌色悬停 */
+  --color-brand-fill: var(--brand);
+  --color-brand-bg: var(--brand-light);
 
   /* Message & UI Component Colors - Dark Mode */
   --message-user-bg: #1e2a3a; /* 用户消息背景（深蓝灰） */

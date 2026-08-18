@@ -389,7 +389,7 @@ const WikiDetailPage: React.FC = () => {
   if (page.status) metaItems.push({ label: t('wiki.status'), value: page.status });
 
   return (
-    <div className='flex flex-col h-full bg-1'>
+    <div className='flex flex-col h-full bg-base'>
       {/* Top bar */}
       <div className='shrink-0 px-20px pt-16px pb-12px border-b border-fill-3 flex items-center gap-12px'>
         <Button

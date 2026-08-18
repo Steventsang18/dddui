@@ -259,7 +259,7 @@ const AssistantSelectionArea: React.FC<AssistantSelectionAreaProps> = ({
         <div
           ref={barRef}
           className='relative inline-flex max-w-full items-center rounded-999px px-6px py-6px'
-          style={{ background: 'var(--color-guid-agent-bar, var(--aou-2))' }}
+          style={{ background: 'var(--brand-light)', border: '1px solid var(--brand-hover)' }}
           onMouseEnter={hasOverflow ? handleBarMouseEnter : undefined}
           onMouseLeave={hasOverflow ? handleBarMouseLeave : undefined}
         >

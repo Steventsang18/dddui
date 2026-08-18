@@ -217,5 +217,25 @@ export default defineConfig({
       // 所有代码视图（原文、代码块、编辑器）统一的等宽字体栈
       mono: 'ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Cascadia Code", "Roboto Mono", Consolas, "Liberation Mono", monospace',
     },
+    // 圆角基线令牌（P0-3）：新增 t-* 命名空间，指向 --radius-* 设计令牌。
+    // 刻意「新增」而非「覆写」默认 sm/md/lg/xl：避免改动所有既有 rounded-md/lg/xl
+    // 的外观基准（如对话框/卡片圆角），统一收敛留给后续决策。用法：rounded-t-lg 等。
+    borderRadius: {
+      't-sm': 'var(--radius-sm)',
+      't-md': 'var(--radius-md)',
+      't-lg': 'var(--radius-lg)',
+      't-xl': 'var(--radius-xl)',
+      't-pill': 'var(--radius-pill)',
+    },
+    // 阴影基线令牌（P1-1 · 签名精修）：新增 1/2/3/4 + focus 命名空间，指向 --elevation-* /
+    // --focus-ring 设计令牌。刻意「新增」而非「覆写」默认 sm/md/lg/xl：避免改动所有既有
+    // shadow-md/lg 的外观基准（如对话框/菜单/卡片投影），统一收敛留给后续决策。
+    boxShadow: {
+      '1': 'var(--elevation-1)',
+      '2': 'var(--elevation-2)',
+      '3': 'var(--elevation-3)',
+      '4': 'var(--elevation-4)',
+      'focus': 'var(--focus-ring)',
+    },
   },
 });

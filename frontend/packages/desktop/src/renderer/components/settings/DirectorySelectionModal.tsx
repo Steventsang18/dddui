@@ -207,7 +207,7 @@ const DirectorySelectionModal: React.FC<DirectorySelectionModalProps> = ({
               <div
                 key={index}
                 className='flex items-center justify-between p-10px border-b border-b-light cursor-pointer hover:bg-hover transition'
-                style={selectedPath === item.path ? { background: 'var(--brand-light)' } : {}}
+                style={selectedPath === item.path ? { background: 'var(--bg-active)' } : {}}
                 onClick={() => handleItemClick(item)}
                 onDoubleClick={() => handleItemDoubleClick(item)}
               >

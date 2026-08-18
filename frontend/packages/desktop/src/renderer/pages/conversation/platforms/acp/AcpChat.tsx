@@ -77,6 +77,10 @@ const AcpChat: React.FC<{
         loadedMcpServers,
         loadedMcpStatuses,
         assistantId,
+        tokenUsage: messageState.tokenUsage,
+        context_limit: messageState.context_limit,
+        turnStartedAtMs: messageState.turnStartedAtMs,
+        running: messageState.running,
       }}
     >
       <ConversationArtifactProvider conversation_id={conversation_id}>

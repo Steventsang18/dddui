@@ -84,6 +84,8 @@ import type {
   IPauseTeamSlotParams,
   ISendTeamAgentMessageParams,
   ISendTeamMessageParams,
+  IStartWorkflowRequest,
+  IStartWorkflowResponse,
   ITeamTeammateMessageEvent,
   TTeam,
   TeamAssistant,
@@ -253,6 +255,10 @@ export const conversation = {
     (p) => `/api/conversations/${p.conversation_id}/cancel`,
     (p) => ({ turn_id: p.turn_id })
   ),
+  compact: httpPost<
+    { conversation_id: string; turn_id: string; status: 'completed' | 'failed' },
+    { conversation_id: string }
+  >((p) => `/api/conversations/${p.conversation_id}/compact`, () => undefined),
   activeCount: httpGet<{ count: number }>('/api/conversations/active-count'),
   sendMessage: httpPost<ISendMessageResult, ISendMessageParams>(
     (p) => `/api/conversations/${p.conversation_id}/messages`,
@@ -2163,6 +2169,10 @@ export const team = {
     (p) => ({
       reason: p.reason,
     })
+  ),
+  startWorkflow: httpPost<IStartWorkflowResponse, { team_id: string } & IStartWorkflowRequest>(
+    (p) => `/api/teams/${p.team_id}/workflow`,
+    (p) => ({ nodes: p.nodes })
   ),
   agentStatusChanged: wsEmitter<ITeamAgentStatusEvent>('team.agentStatusChanged'),
   agentSpawned: wsEmitter<ITeamAgentSpawnedEvent>('team.agentSpawned'),

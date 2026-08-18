@@ -122,6 +122,10 @@ pub struct AionrsAgentManager {
     cancel_notify: Arc<Notify>,
     /// Signalled after an in-flight turn emits its terminal event.
     turn_finished_notify: Arc<Notify>,
+    /// Cumulative `(input_tokens, output_tokens)` as of the end of the previous
+    /// turn. Subtracted from the engine's session-cumulative usage to derive the
+    /// per-reply 上行/下行 token delta reported in the `Finish` event.
+    last_cumulative_usage: Mutex<(u64, u64)>,
 }
 
 impl Drop for AionrsAgentManager {
@@ -215,6 +219,12 @@ impl AionrsAgentManager {
         }
 
         let is_resume = resume_session.is_some();
+        // Seed the per-reply usage baseline from any resumed session so the first
+        // turn of a resumed conversation reports only its own 上行/下行 tokens.
+        let last_cumulative_usage: (u64, u64) = resume_session
+            .as_ref()
+            .map(|s| (s.total_usage.input_tokens, s.total_usage.output_tokens))
+            .unwrap_or((0, 0));
         let provider_label = config.provider_label.clone();
 
         let mut bootstrap = AgentBootstrap::new(config, &workspace, sink).runtime_env(runtime_env);
@@ -282,7 +292,17 @@ impl AionrsAgentManager {
             final_input_dump,
             cancel_notify: Arc::new(Notify::new()),
             turn_finished_notify: Arc::new(Notify::new()),
+            last_cumulative_usage: Mutex::new(last_cumulative_usage),
         })
+    }
+
+    /// Real context usage for the consumption ring: `used` = the engine's
+    /// best-known token occupancy for the next provider request, `size` = the
+    /// effective runtime context window. Mirrors `RupooAgentManager::get_usage`.
+    pub async fn get_usage(&self) -> (u64, u64) {
+        let engine = self.engine.lock().await;
+        let status = engine.context_status();
+        (status.context_usage, status.context_window)
     }
 
     fn request_stop(&self, reason: Option<AgentKillReason>, operation: &'static str) -> bool {
@@ -422,13 +442,32 @@ impl IAgentTask for AionrsAgentManager {
         self.runtime.bump_activity();
 
         let send_result = match result {
-            Some(Ok(_)) => {
+            Some(Ok(result)) => {
+                // Derive per-reply 上行/下行 tokens from the delta of the
+                // engine's session-cumulative usage since the previous turn.
+                let cumulative = (result.usage.input_tokens, result.usage.output_tokens);
+                let (per_input, per_output) = {
+                    let mut last = self.last_cumulative_usage.lock().await;
+                    let per_input = cumulative.0.saturating_sub(last.0);
+                    let per_output = cumulative.1.saturating_sub(last.1);
+                    *last = cumulative;
+                    (per_input, per_output)
+                };
                 info!(
                     conversation_id = %self.runtime.conversation_id(),
                     elapsed_ms,
+                    input_tokens = per_input,
+                    output_tokens = per_output,
                     "Aionrs engine.run() completed, emitting Finish"
                 );
-                self.runtime.emit_finish(None);
+                // Token counts are bounded by provider limits (well below
+                // u32::MAX), so the narrowing cast is safe.
+                self.runtime.emit_finish_with_usage(
+                    None,
+                    Some(per_input as u32),
+                    Some(per_output as u32),
+                    Some(elapsed_ms.max(0) as u64),
+                );
                 Ok(())
             }
             Some(Err(e)) => {

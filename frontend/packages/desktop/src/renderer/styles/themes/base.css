@@ -3,6 +3,35 @@
 :root {
   --app-min-width: 360px;
   --titlebar-height: 36px;
+
+  /* ===== 圆角基线令牌（P0-3 · 视觉基础治理） =====
+     语义层级（与明暗无关，全主题继承）：
+       --radius-sm   6px  · 小 chip / tag / 徽标 / 头像小圈
+       --radius-md   8px  · 输入 / 按钮 / 小卡片
+       --radius-lg  12px  · 卡片 / 对话框 / 面板分区
+       --radius-xl  16px  · 大容器 / 浮层 / 大面板
+       --radius-pill 999px · 胶囊 / 圆形头像
+     说明：Uno 默认 rounded-md/lg/xl 仍是预设值（6/8/12px），本组令牌用于
+     需要「语义化、可随主题统一调参」的圆角场景，原子类为 rounded-t-*。 */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  /* ===== Elevation 令牌（P1-1 · 签名精修） =====
+     语义层级（亮色声明于此，暗色在 [data-theme='dark'] 覆盖）：
+       --elevation-1  静止表面 / 卡片          · 极轻，仅做分层提示
+       --elevation-2  抬升 / hover            · 交互浮起
+       --elevation-3  气泡 / 菜单 / popover    · 接近原 shadow-lg 但更干净
+       --elevation-4  模态 / 浮层 overlay       · 对齐既有 --aion-overlay-shadow
+       --focus-ring   交互焦点环               · 归一散写的 0 0 0 2px primary 环
+     原子类：shadow-1..4 / shadow-focus（深合并不覆写默认 shadow-sm/md/lg/xl）。 */
+  --elevation-1: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --elevation-2: 0 2px 8px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.08);
+  --elevation-3: 0 6px 16px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.12);
+  --elevation-4: 0 8px 24px rgba(15, 23, 42, 0.08), 0 12px 32px rgba(0, 0, 0, 0.08);
+  --focus-ring: 0 0 0 2px rgba(var(--primary-6), 0.16);
 }
 
 .app-shell {
@@ -174,4 +203,19 @@ body,
 
 [data-theme='dark'] *:hover::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
+}
+
+/* Quaternary text token — shared across ALL dark themes so the sider
+   section titles / settings group headers keep a consistent mid-gray
+   (#9098a1) regardless of the active color scheme (the 8 decorative
+   themes only override a subset of tokens and inherit the rest). */
+[data-theme='dark'] {
+  --text-quaternary: #9098a1;
+
+  /* Elevation 暗色覆盖（P1-1）：暗底上阴影需更深/更实才有层级感 */
+  --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --elevation-2: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --elevation-3: 0 6px 16px rgba(0, 0, 0, 0.5);
+  --elevation-4: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --focus-ring: 0 0 0 2px rgba(var(--primary-6), 0.3);
 }

@@ -374,11 +374,30 @@ export const useAcpMessage = (
             // Log request completion
             if (requestTraceRef.current) {
               const duration = Date.now() - requestTraceRef.current.startTime;
+              const modelId = requestTraceRef.current.model_id;
               console.log(
-                `%c[RequestTrace]%c FINISH | ${requestTraceRef.current.backend} → ${requestTraceRef.current.model_id} | ${duration}ms | ${new Date().toISOString()}`,
+                `%c[RequestTrace]%c FINISH | ${requestTraceRef.current.backend} → ${modelId} | ${duration}ms | ${new Date().toISOString()}`,
                 'color: #52c41a; font-weight: bold',
                 'color: inherit'
               );
+              // 上报 model_call 轨迹事件（日期时刻+模型+耗时），供对话轨迹回放查询。
+              // 同源 POST，Owner 模式下无需额外鉴权头。
+              fetch(`/api/conversations/${conversation_id}/trace-event`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  event_kind: 'model_call',
+                  model: modelId,
+                  role: 'assistant',
+                  input: { backend: requestTraceRef.current.backend },
+                  output: { ok: true },
+                  token_usage: { duration_ms: duration },
+                  status: 'finish',
+                }),
+                keepalive: true,
+              }).catch((err) => {
+                console.warn('[RequestTrace] failed to record trace event:', err);
+              });
               requestTraceRef.current = null;
             }
           }

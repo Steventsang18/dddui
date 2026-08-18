@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { ipcBridge } from '@/common';
 import type { IProvider } from '@/common/config/storage';
 import AddPlatformModal from '@renderer/pages/settings/components/AddPlatformModal';
-import BrandMark from '@renderer/components/common/BrandMark';
+import brandLogo from '@renderer/assets/logos/brand/app.png';
 import './Setup.css';
 
 /**
@@ -39,7 +39,7 @@ const Setup: React.FC = () => {
     <div className="setup-page">
       <div className="setup-card">
         <div className="setup-brand">
-          <BrandMark size="lg" />
+          <img src={brandLogo} alt="DDDUI" className="setup-brand-logo" />
         </div>
 
         <h1 className="setup-title">{t('setup.welcome', { defaultValue: '欢迎使用 DDDUI' })}</h1>

@@ -416,8 +416,18 @@ impl AgentInstance {
                 roseui_common::normalize_keys_to_snake_case(&mut value);
                 Ok(Some(value))
             }
-            Self::Aionrs(_) => Ok(None),
-            Self::Rupoo(_) => Ok(None),
+            Self::Aionrs(m) => {
+                let (used, size) = m.get_usage().await;
+                let mut value = serde_json::json!({ "used": used, "size": size });
+                roseui_common::normalize_keys_to_snake_case(&mut value);
+                Ok(Some(value))
+            }
+            Self::Rupoo(m) => {
+                let (used, size) = m.get_usage();
+                let mut value = serde_json::json!({ "used": used, "size": size });
+                roseui_common::normalize_keys_to_snake_case(&mut value);
+                Ok(Some(value))
+            }
             Self::Session(m) => m.get_usage().await,
             #[cfg(any(test, feature = "test-support"))]
             Self::Mock(m) => m.get_usage().await,

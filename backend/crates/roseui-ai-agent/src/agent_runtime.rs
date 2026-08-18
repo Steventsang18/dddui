@@ -109,6 +109,21 @@ impl AgentRuntime {
     /// Atomic: set status ← Finished AND broadcast `Finish(session_id)`.
     /// Idempotent in the Finished absorbing state (no-op).
     pub fn emit_finish(&self, session_id: Option<String>) {
+        self.emit_finish_with_usage(session_id, None, None, None);
+    }
+
+    /// Like [`emit_finish`], but also carries per-reply 上行/下行 token usage
+    /// (`input_tokens` / `output_tokens`) and the turn's wall-clock duration
+    /// (`elapsed_ms`) in the `Finish` event payload so the UI can render real
+    /// per-reply figures instead of session totals or a transient ticker.
+    /// Idempotent in the Finished absorbing state (no-op).
+    pub fn emit_finish_with_usage(
+        &self,
+        session_id: Option<String>,
+        input_tokens: Option<u32>,
+        output_tokens: Option<u32>,
+        elapsed_ms: Option<u64>,
+    ) {
         let already_finished = {
             let mut guard = self.status.write().unwrap_or_else(|e| e.into_inner());
             let was_finished = matches!(*guard, Some(ConversationStatus::Finished));
@@ -122,7 +137,12 @@ impl AgentRuntime {
         }
         let _ = self
             .event_tx
-            .send(AgentStreamEvent::Finish(FinishEventData { session_id }));
+            .send(AgentStreamEvent::Finish(FinishEventData {
+                session_id,
+                input_tokens,
+                output_tokens,
+                elapsed_ms,
+            }));
     }
 
     /// Atomic: set status ← Finished AND broadcast `Error { message }`.
