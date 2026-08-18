@@ -24,6 +24,8 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
+use async_trait::async_trait;
+use common::MockTeamRepo;
 use roseui_ai_agent::AgentError;
 use roseui_ai_agent::agent_task::{AgentInstance, IAgentTask, IMockAgent};
 use roseui_ai_agent::protocol::events::{AgentStreamEvent, FinishEventData};
@@ -43,8 +45,6 @@ use roseui_team::ports::{
 };
 use roseui_team::service::TeamSessionService;
 use roseui_team::{TeamAgent, TeamProjectionMessageStore, TeamSession, TeammateRole};
-use async_trait::async_trait;
-use common::MockTeamRepo;
 use serde_json::{Value, json};
 use tokio::net::TcpStream;
 use tokio::sync::{broadcast, oneshot};
@@ -390,9 +390,12 @@ impl RecordingAgent {
     /// Fire a Finish event on the agent's stream (simulates agent completing a turn).
     #[allow(dead_code)]
     fn fire_finish(&self) {
-        let _ = self
-            .event_tx
-            .send(AgentStreamEvent::Finish(FinishEventData { session_id: None }));
+        let _ = self.event_tx.send(AgentStreamEvent::Finish(FinishEventData {
+            session_id: None,
+            input_tokens: None,
+            output_tokens: None,
+            elapsed_ms: None,
+        }));
     }
 }
 

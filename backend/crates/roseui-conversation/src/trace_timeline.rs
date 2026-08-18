@@ -8,8 +8,8 @@
 //!
 //! 该结构**只供前端新时间线使用**；`data`（原始事件）与矩阵展示完全不变。
 
-use roseui_db::models::SessionEventRow;
 use roseui_db::UserQuestionRow;
+use roseui_db::models::SessionEventRow;
 use serde_json::{Value, json};
 
 /// 工具中文名映射：(协议名, 中文动作, 图标)。
@@ -75,13 +75,11 @@ fn truncate(s: &str, max: usize) -> String {
         s.to_string()
     } else {
         let mut out = String::new();
-        let mut n = 0;
-        for c in s.chars() {
+        for (n, c) in s.chars().enumerate() {
             if n >= max {
                 break;
             }
             out.push(c);
-            n += 1;
         }
         format!("{out}…")
     }
@@ -171,18 +169,20 @@ pub fn build_timeline(events: &[SessionEventRow], questions: &[UserQuestionRow])
         }
     }
 
-    json!(turns
-        .into_iter()
-        .map(|t| {
-            json!({
-                "turn": t.turn,
-                "time": t.time,
-                "question": t.question.as_ref().map(|(_, c, _)| c.clone()),
-                "question_id": t.question.as_ref().map(|(id, _, _)| id.clone()),
-                "steps": t.steps.into_iter().map(|s| s.payload).collect::<Vec<_>>(),
+    json!(
+        turns
+            .into_iter()
+            .map(|t| {
+                json!({
+                    "turn": t.turn,
+                    "time": t.time,
+                    "question": t.question.as_ref().map(|(_, c, _)| c.clone()),
+                    "question_id": t.question.as_ref().map(|(id, _, _)| id.clone()),
+                    "steps": t.steps.into_iter().map(|s| s.payload).collect::<Vec<_>>(),
+                })
             })
-        })
-        .collect::<Vec<_>>())
+            .collect::<Vec<_>>()
+    )
 }
 
 fn push_step(turn: &mut Turn, e: &SessionEventRow) {
@@ -316,11 +316,7 @@ fn merge_text_steps(turn: &mut Turn) {
                 .to_string();
             last.ids.extend(st.ids.iter().cloned());
             if let Some(obj) = last.payload.as_object_mut() {
-                let cur = obj
-                    .get("content")
-                    .and_then(|c| c.as_str())
-                    .unwrap_or("")
-                    .to_string();
+                let cur = obj.get("content").and_then(|c| c.as_str()).unwrap_or("").to_string();
                 let merged = if cur.is_empty() {
                     extra
                 } else {
@@ -350,10 +346,10 @@ fn merge_text_steps(turn: &mut Turn) {
     }
     // 修正 parts 计数
     for st in out.iter_mut() {
-        if st.kind == "answer" {
-            if let Some(obj) = st.payload.as_object_mut() {
-                obj.insert("parts".to_string(), json!(st.ids.len()));
-            }
+        if st.kind == "answer"
+            && let Some(obj) = st.payload.as_object_mut()
+        {
+            obj.insert("parts".to_string(), json!(st.ids.len()));
         }
     }
     turn.steps = out;

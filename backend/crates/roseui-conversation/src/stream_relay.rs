@@ -2006,11 +2006,11 @@ mod tests {
         let tool_msg = inserts.iter().find(|m| m.r#type == "tool_call");
         assert!(tool_msg.is_some());
         let msg = tool_msg.unwrap();
-        assert_eq!(msg.id, "tc-001");
+        assert_eq!(msg.id, "conv-1-tc-001");
         assert_eq!(msg.status.as_deref(), Some("work"));
 
         let updates = repo.take_updates();
-        let tool_update = updates.iter().find(|(id, _)| id == "tc-001");
+        let tool_update = updates.iter().find(|(id, _)| id == "conv-1-tc-001");
         assert!(tool_update.is_some());
         let (_, upd) = tool_update.unwrap();
         assert_eq!(upd.status, Some(Some("finish".to_owned())));

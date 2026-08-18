@@ -105,17 +105,13 @@ impl WorkflowDef {
             }
         }
 
-        let mut queue: VecDeque<&str> = indegree
-            .iter()
-            .filter(|&(_, &d)| d == 0)
-            .map(|(&id, _)| id)
-            .collect();
+        let mut queue: VecDeque<&str> = indegree.iter().filter(|&(_, &d)| d == 0).map(|(&id, _)| id).collect();
         let mut order: Vec<String> = Vec::new();
         let mut depth: HashMap<String, usize> = HashMap::new();
 
         while let Some(id) = queue.pop_front() {
             // depth = 1 + max(dep depths)
-            let d = node_depth(id, &by_id, &adj, &mut depth);
+            let d = node_depth(id, &by_id, &mut depth);
             depth.insert(id.to_string(), d);
             order.push(id.to_string());
             if let Some(successors) = adj.get(id) {
@@ -149,12 +145,7 @@ impl WorkflowDef {
 
 /// Compute the dependency depth of `id` (longest chain of predecessors).
 /// Memoized via `cache` to avoid re-walking.
-fn node_depth(
-    id: &str,
-    by_id: &HashMap<&str, &WorkflowNode>,
-    adj: &HashMap<&str, Vec<&str>>,
-    cache: &mut HashMap<String, usize>,
-) -> usize {
+fn node_depth(id: &str, by_id: &HashMap<&str, &WorkflowNode>, cache: &mut HashMap<String, usize>) -> usize {
     if let Some(&d) = cache.get(id) {
         return d;
     }
@@ -167,7 +158,7 @@ fn node_depth(
     } else {
         1 + predecessors
             .iter()
-            .map(|&p| node_depth(p, by_id, adj, cache))
+            .map(|&p| node_depth(p, by_id, cache))
             .max()
             .unwrap_or(0)
     };

@@ -5,8 +5,8 @@ use axum::body::Body;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Extension, Json, Path, Query, State};
 use axum::http::StatusCode;
-use axum::response::Response;
 use axum::http::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
+use axum::response::Response;
 use axum::routing::{get, patch, post};
 
 use roseui_api_types::{
@@ -14,9 +14,8 @@ use roseui_api_types::{
     CancelConversationResponse, CloneConversationRequest, CompactConversationResponse, ConfirmRequest,
     ConfirmationListResponse, ConversationArtifactListResponse, ConversationArtifactResponse, ConversationListResponse,
     ConversationResponse, CreateConversationRequest, EnsureConversationRuntimeResponse, ListConversationsQuery,
-    ListMessagesQuery,
-    MessageListResponse, MessageResponse, MessageSearchResponse, SearchMessagesQuery, SendMessageRequest,
-    SendMessageResponse, UpdateConversationArtifactRequest, UpdateConversationRequest,
+    ListMessagesQuery, MessageListResponse, MessageResponse, MessageSearchResponse, SearchMessagesQuery,
+    SendMessageRequest, SendMessageResponse, UpdateConversationArtifactRequest, UpdateConversationRequest,
 };
 use roseui_auth::CurrentUser;
 use roseui_common::{ApiError, now_ms};
@@ -340,16 +339,11 @@ struct TraceQuery {
 }
 
 /// Export format for `GET /api/conversations/{id}/trace/export`.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
 enum TraceExportFormat {
+    #[default]
     Markdown,
     Json,
-}
-
-impl Default for TraceExportFormat {
-    fn default() -> Self {
-        TraceExportFormat::Markdown
-    }
 }
 
 impl TraceExportFormat {
@@ -414,10 +408,7 @@ async fn trace_export(
             .map_err(|e| ApiError::Internal(format!("serialize trace export: {e}")))?;
             Ok(Response::builder()
                 .header(CONTENT_TYPE, "application/json; charset=utf-8")
-                .header(
-                    CONTENT_DISPOSITION,
-                    format!("attachment; filename=\"trace-{id}.json\""),
-                )
+                .header(CONTENT_DISPOSITION, format!("attachment; filename=\"trace-{id}.json\""))
                 .body(Body::from(body))
                 .map_err(|e| ApiError::Internal(format!("build response: {e}")))?)
         }
@@ -425,10 +416,7 @@ async fn trace_export(
             let md = render_trace_markdown(&id, &events, &timeline);
             Ok(Response::builder()
                 .header(CONTENT_TYPE, "text/markdown; charset=utf-8")
-                .header(
-                    CONTENT_DISPOSITION,
-                    format!("attachment; filename=\"trace-{id}.md\""),
-                )
+                .header(CONTENT_DISPOSITION, format!("attachment; filename=\"trace-{id}.md\""))
                 .body(Body::from(md))
                 .map_err(|e| ApiError::Internal(format!("build response: {e}")))?)
         }
@@ -436,13 +424,9 @@ async fn trace_export(
 }
 
 /// Render the trace into a human-readable Markdown document.
-fn render_trace_markdown(
-    conversation_id: &str,
-    events: &[SessionEventRow],
-    timeline: &serde_json::Value,
-) -> String {
+fn render_trace_markdown(conversation_id: &str, events: &[SessionEventRow], timeline: &serde_json::Value) -> String {
     let mut out = String::new();
-    out.push_str(&format!("# 对话轨迹导出\n\n"));
+    out.push_str("# 对话轨迹导出\n\n");
     out.push_str(&format!("会话 ID: `{conversation_id}`\n"));
     out.push_str(&format!("事件数: {}\n\n", events.len()));
     out.push_str("---\n\n");
@@ -464,7 +448,7 @@ fn render_trace_markdown(
                     out.push_str(&format!("- **[{kind}]** {summary} _{status}_\n"));
                 }
             }
-            out.push_str("\n");
+            out.push('\n');
         }
     }
 
