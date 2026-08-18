@@ -32,6 +32,11 @@ jobs:
   backend:
     name: Backend (fmt + clippy + test)
     runs-on: ubuntu-latest
+    env:
+      # CI 静态检查不需要真实前端产物：roseui-webhost 的 build.rs 在无 dist/assets
+      # 时会 panic，此开关让其在检查模式下嵌入占位 index.html（release.yml 构建
+      # 真实发布二进制时仍先 npm run build，不受影响）。
+      ROSEUI_SKIP_FRONTEND: "1"
     defaults:
       run:
         working-directory: backend

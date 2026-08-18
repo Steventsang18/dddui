@@ -13,6 +13,8 @@
 //! - dist 存在 → 清旧 assets 并拷贝 dist 全部内容。
 //! - dist 不存在但 assets 已有内容 → 保留旧前端，仅告警（兼容手动/CI 已拷状态）。
 //! - 两者皆空 → 构建失败并提示先 `vite build`，避免产出"嵌入空前端"的二进制。
+//! - `ROSEUI_SKIP_FRONTEND=1` → 跳过内嵌逻辑，仅保证 assets/ 有占位 index.html
+//!   供 rust-embed 编译（CI 静态检查 / clippy / nextest 场景，无需真实前端）。
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -22,6 +24,21 @@ fn main() {
         std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set by cargo"),
     );
     let assets_dir = manifest_dir.join("assets");
+
+    // 0) CI 静态检查模式：跳过前端内嵌，不 panic，不覆盖已有 assets
+    if std::env::var_os("ROSEUI_SKIP_FRONTEND").is_some() {
+        println!("cargo:warning=ROSEUI_SKIP_FRONTEND set - skipping frontend embedding (CI check mode)");
+        let placeholder = assets_dir.join("index.html");
+        if !placeholder.exists() {
+            fs::create_dir_all(&assets_dir).expect("failed to create assets/ dir");
+            fs::write(
+                &placeholder,
+                "<!doctype html><html><head><meta charset=\"utf-8\"><title>placeholder</title></head><body></body></html>",
+            )
+            .expect("failed to write placeholder index.html");
+        }
+        return;
+    }
 
     // 1) 解析前端 dist 来源
     let dist_dir: Option<PathBuf> = if let Ok(env_dist) = std::env::var("ROSEUI_FRONTEND_DIST") {
