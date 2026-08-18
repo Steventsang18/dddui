@@ -1810,6 +1810,7 @@ fn setup_with_factory_metadata_team_repo_and_conversation_repo(
         noop_turn_port(),
         noop_cancellation_port(),
         backend_binary_path,
+        Arc::new(std::path::PathBuf::from("data")),
     );
     (svc, team_repo, task_manager, conv_repo)
 }
@@ -1855,6 +1856,7 @@ fn setup_with_factory_metadata_assistants_and_conversation_repo(
         noop_turn_port(),
         noop_cancellation_port(),
         backend_binary_path,
+        Arc::new(std::path::PathBuf::from("data")),
     );
     (svc, team_repo, task_manager, conv_repo)
 }
@@ -1916,6 +1918,7 @@ fn setup_with_ports_metadata_assistants_and_conversation_repo(
         noop_turn_port(),
         noop_cancellation_port(),
         backend_binary_path,
+        Arc::new(std::path::PathBuf::from("data")),
     );
     (svc, team_repo, conversation_ports, conv_repo)
 }
@@ -1951,6 +1954,7 @@ fn setup_with_recording_turn_port() -> (
         turn_port.clone(),
         noop_cancellation_port(),
         backend_binary_path,
+        Arc::new(std::path::PathBuf::from("data")),
     );
     (svc, team_repo, turn_port, conv_repo)
 }
@@ -2156,6 +2160,7 @@ fn setup_with_recording_broadcaster() -> (Arc<TeamSessionService>, Arc<Recording
         noop_turn_port(),
         noop_cancellation_port(),
         backend_binary_path,
+        Arc::new(std::path::PathBuf::from("data")),
     );
     (svc, recorder)
 }
@@ -2209,6 +2214,7 @@ fn setup_with_factory_recording_broadcaster_and_conversation_repo(factory: Agent
         noop_turn_port(),
         noop_cancellation_port(),
         backend_binary_path,
+        Arc::new(std::path::PathBuf::from("data")),
     );
     (svc, team_repo, task_manager, recorder, conv_repo)
 }

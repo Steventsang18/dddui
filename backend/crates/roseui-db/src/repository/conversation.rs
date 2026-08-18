@@ -147,6 +147,29 @@ pub trait IConversationRepository: Send + Sync {
         Ok(())
     }
 
+    /// Returns session trace events for a conversation, filtered and ordered
+    /// for replay. `filters.event_kind`/`model`/`from_ts`/`to_ts` are optional.
+    /// Results are ordered by `turn_seq` (stable replay order) then `created_at`.
+    async fn list_session_events(
+        &self,
+        _user_id: &str,
+        _conversation_id: &str,
+        _filters: &SessionEventFilters,
+    ) -> Result<Vec<SessionEventRow>, DbError> {
+        Ok(Vec::new())
+    }
+
+    /// Returns the user's own text messages (提问) for a conversation, in
+    /// ascending time order. Used by the trace view to rebuild per-turn context
+    /// ("你问了什么") alongside the replayed engine events.
+    async fn list_user_questions(
+        &self,
+        _user_id: &str,
+        _conversation_id: &str,
+    ) -> Result<Vec<UserQuestionRow>, DbError> {
+        Ok(Vec::new())
+    }
+
     /// Finds a message by (conversation_id, msg_id, type) triple.
     async fn get_message_by_msg_id(
         &self,
@@ -326,6 +349,36 @@ pub struct MessageRowUpdate {
     pub content: Option<String>,
     pub status: Option<Option<String>>,
     pub hidden: Option<bool>,
+}
+
+/// One user-authored text message (提问) in a conversation.
+#[derive(Debug, Clone)]
+pub struct UserQuestionRow {
+    pub id: String,
+    /// Raw text of the question (unwrapped from the `{"content": ...}` envelope).
+    pub content: String,
+    pub created_at: i64,
+}
+
+/// Filters for querying session trace events.
+#[derive(Debug, Clone, Default)]
+pub struct SessionEventFilters {
+    /// Optional event kind filter (`text`/`thinking`/`tool_call`/`model_call`).
+    pub event_kind: Option<String>,
+    /// Optional model name filter (substring match).
+    pub model: Option<String>,
+    /// Optional lower bound on `created_at` (epoch ms).
+    pub from_ts: Option<i64>,
+    /// Optional upper bound on `created_at` (epoch ms).
+    pub to_ts: Option<i64>,
+    /// Max number of events to return (default 200).
+    pub limit: u32,
+}
+
+impl SessionEventFilters {
+    pub fn effective_limit(&self) -> i64 {
+        if self.limit == 0 { 200 } else { self.limit as i64 }
+    }
 }
 
 /// A single result row from cross-conversation message search.

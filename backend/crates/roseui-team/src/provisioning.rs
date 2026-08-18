@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use roseui_ai_agent::IWorkerTaskManager;
-use roseui_api_types::{AddAgentRequest, GetConfigOptionsResponse, TeamAgentInput, TeamToolTransport};
+use roseui_api_types::{
+    AddAgentRequest, GetConfigOptionsResponse, TeamAgentInput, TeamToolTransport, WikiMcpStdioConfig,
+};
 use roseui_common::{AgentKillReason, AgentType, ProviderWithModel, generate_id};
 use roseui_db::models::{AgentMetadataRow, TeamRow};
 use roseui_db::{IAgentMetadataRepository, IProviderRepository, ITeamRepository, UpdateTeamParams};
@@ -374,13 +376,14 @@ impl TeamAgentProvisioner {
         user_id: &str,
         agent: &TeamAgent,
         mcp_stdio_cfg: TeamMcpStdioConfig,
+        wiki_mcp_stdio_cfg: Option<WikiMcpStdioConfig>,
         task_manager: &Arc<dyn IWorkerTaskManager>,
     ) -> Result<(), TeamError> {
         let team_id = mcp_stdio_cfg.team_id.clone();
         let transport = self.team_tool_transport(user_id, agent).await?;
         match transport {
             TeamToolTransport::Mcp => {
-                self.write_team_mcp_runtime_config(user_id, agent, mcp_stdio_cfg)
+                self.write_team_mcp_runtime_config(user_id, agent, mcp_stdio_cfg, wiki_mcp_stdio_cfg)
                     .await?
             }
             TeamToolTransport::CliAssumed => self.write_team_cli_runtime_config(user_id, agent).await?,
@@ -462,6 +465,7 @@ impl TeamAgentProvisioner {
         user_id: &str,
         agent: &TeamAgent,
         mcp_stdio_cfg: TeamMcpStdioConfig,
+        wiki_mcp_stdio_cfg: Option<WikiMcpStdioConfig>,
     ) -> Result<(), TeamError> {
         let acp_metadata = acp_backend_metadata(&self.agent_metadata_repo, user_id, &agent.backend).await?;
         let agent_type = if acp_metadata.is_some() {
@@ -472,6 +476,7 @@ impl TeamAgentProvisioner {
         let session_mode = session_mode_for_backend(&agent.backend, agent_type, acp_metadata.as_ref());
         let patch = serde_json::json!({
             "team_mcp_stdio_config": mcp_stdio_cfg,
+            "wiki_mcp_stdio_config": wiki_mcp_stdio_cfg,
             "session_mode": session_mode,
         });
         self.conversation_port
@@ -589,18 +594,29 @@ impl TeamAgentProvisioner {
             acp_metadata.as_ref(),
             session_mode,
         );
-        let provider_id = if agent_type == AgentType::Aionrs {
-            self.resolve_provider_for_model(user_id, model)
-                .await
-                .unwrap_or_else(|| backend.to_owned())
+        // Resolve both the provider and the concrete model. For aionrs, if the
+        // requested model does not match any enabled provider's model list (e.g.
+        // the placeholder "default"), fall back to the first enabled provider and
+        // its first concrete model — never the literal backend name ("aionrs"),
+        // which is not a real provider row and would surface as
+        // `Provider 'aionrs' not found` at warm-up, and never a non-existent
+        // model name, which DeepSeek/OpenAI would reject with HTTP 400.
+        let (provider_id, resolved_model) = if agent_type == AgentType::Aionrs {
+            match self.resolve_provider_for_model(user_id, model).await {
+                Some(id) => (id, model.to_owned()),
+                None => self
+                    .first_enabled_provider_with_model(user_id)
+                    .await
+                    .unwrap_or_else(|| (backend.to_owned(), model.to_owned())),
+            }
         } else {
-            backend.to_owned()
+            (backend.to_owned(), model.to_owned())
         };
         let (top_level_model, extra) = if agent_type == AgentType::Aionrs {
             (
                 Some(ProviderWithModel {
                     provider_id,
-                    model: model.to_owned(),
+                    model: resolved_model.clone(),
                     use_model: None,
                 }),
                 extra,
@@ -608,7 +624,7 @@ impl TeamAgentProvisioner {
         } else {
             let mut extra = extra;
             extra["provider_id"] = serde_json::Value::String(provider_id);
-            extra["current_model_id"] = serde_json::Value::String(model.to_owned());
+            extra["current_model_id"] = serde_json::Value::String(resolved_model);
             (None, extra)
         };
         let created = self
@@ -751,6 +767,23 @@ impl TeamAgentProvisioner {
             }
         }
         None
+    }
+
+    /// Return the id and first concrete model of the first enabled provider.
+    ///
+    /// Used as a fallback when an aionrs agent's requested model does not match
+    /// any provider's model list: the agent binds to a real provider AND a real
+    /// model name, so the upstream LLM API does not reject a placeholder such as
+    /// "default" with an HTTP 400 invalid model error.
+    async fn first_enabled_provider_with_model(&self, user_id: &str) -> Option<(String, String)> {
+        let providers = self.provider_repo.list(user_id).await.ok()?;
+        providers
+            .into_iter()
+            .find(|p| p.enabled)
+            .and_then(|p| {
+                let models: Vec<String> = serde_json::from_str(&p.models).unwrap_or_default();
+                models.into_iter().next().map(|m| (p.id, m))
+            })
     }
 }
 
@@ -1131,7 +1164,7 @@ mod tests {
 
         let attach = tokio::spawn(async move {
             provisioner
-                .attach_agent_process("user-1", &agent, test_mcp_config(), &task_manager)
+                .attach_agent_process("user-1", &agent, test_mcp_config(), None, &task_manager)
                 .await
         });
         while !*kill_started_rx.borrow() {
@@ -1153,5 +1186,8 @@ mod tests {
         );
         let patches = patches.lock().unwrap();
         assert!(patches[0]["team_mcp_stdio_config"].is_object());
+        // Wiki MCP wiring is now part of every team-agent runtime patch
+        // (None when the bridge is unavailable, Some when configured).
+        assert!(patches[0].get("wiki_mcp_stdio_config").is_some());
     }
 }

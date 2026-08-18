@@ -636,3 +636,117 @@ fn command_during_running_batch_queues_without_preemption() {
     assert!(second.is_command);
     assert_eq!(second.mailbox_message_ids, vec!["c2"]);
 }
+
+// --- Workflow DAG execution -----------------------------------------------
+
+fn dag_node(id: &str, slot: &str, deps: &[&str]) -> super::dag::WorkflowNode {
+    super::dag::WorkflowNode {
+        id: id.into(),
+        slot_id: slot.into(),
+        prompt: String::new(),
+        depends_on: deps.iter().map(|s| s.to_string()).collect(),
+    }
+}
+
+/// Drive one dispatched node to completion at the *coordinator* layer: the
+/// session layer normally enqueues the ready node as a real mailbox message and
+/// backfills the node→intent mapping, so here we record the mapping directly
+/// (as the session would) and then complete the batch. Mirrors what the real
+/// reconcile loop + `dispatch_dag_ready` do end to end.
+fn finish_node(coordinator: &SlotWorkCoordinator, run_id: &str, node_id: &str, slot_id: &str) -> Vec<super::DagReadyNode> {
+    coordinator.set_runtime_constraint(slot_id, RuntimeConstraint::Ready);
+    // The session records the mapping (node -> synthetic intent) on enqueue.
+    let intent_id = format!("intent-{node_id}");
+    coordinator.record_dag_mapping(run_id, node_id, &intent_id);
+    let batch = WorkBatch {
+        batch_id: format!("batch-{node_id}"),
+        session_generation: "gen".into(),
+        slot_id: slot_id.into(),
+        intent_ids: vec![intent_id],
+        mailbox_message_ids: vec![],
+        highest_priority: WorkPriority::Foreground,
+        team_run_ids: vec![],
+        operation_id: 1,
+        is_command: false,
+    };
+    let (_committed, ready) = coordinator.complete_dag_batch(&batch);
+    ready
+}
+
+/// A linear DAG (a -> b -> c) must return only `a` as ready first; `b` and `c`
+/// stay pending until their predecessors complete.
+#[test]
+fn dag_linear_chain_enqueues_in_topological_order() {
+    let coordinator = coordinator();
+    let def = super::dag::WorkflowDef {
+        nodes: vec![
+            dag_node("c", "slot-c", &["b"]),
+            dag_node("a", "slot-a", &[]),
+            dag_node("b", "slot-b", &["a"]),
+        ],
+    };
+    let (run_id, ready) = coordinator.start_dag(def).expect("valid DAG plans");
+
+    // Only `a` is ready initially.
+    assert_eq!(ready.len(), 1, "only node a should be ready first");
+    assert_eq!(ready[0].node_id, "a");
+
+    // Complete `a` -> `b` becomes ready.
+    let ready = finish_node(&coordinator, &run_id, "a", "slot-a");
+    assert_eq!(ready.len(), 1, "node b ready after a completes");
+    assert_eq!(ready[0].node_id, "b");
+
+    // Complete `b` -> `c` becomes ready.
+    let ready = finish_node(&coordinator, &run_id, "b", "slot-b");
+    assert_eq!(ready.len(), 1, "node c ready after b completes");
+    assert_eq!(ready[0].node_id, "c");
+
+    // Complete `c` -> run fully drained (no further ready nodes).
+    let ready = finish_node(&coordinator, &run_id, "c", "slot-c");
+    assert!(ready.is_empty(), "run drained after c completes");
+    // The run stays tracked until drained.
+    assert!(coordinator.lock_state().dag_runs.get(&run_id).is_some());
+}
+
+/// A diamond (a -> {b,c} -> d) must return a first, then b and c concurrently,
+/// then d only after both b and c complete.
+#[test]
+fn dag_diamond_respects_join_barrier() {
+    let coordinator = coordinator();
+    let def = super::dag::WorkflowDef {
+        nodes: vec![
+            dag_node("a", "slot-a", &[]),
+            dag_node("b", "slot-b", &["a"]),
+            dag_node("c", "slot-c", &["a"]),
+            dag_node("d", "slot-d", &["b", "c"]),
+        ],
+    };
+    let (run_id, ready) = coordinator.start_dag(def).expect("valid DAG plans");
+    assert_eq!(ready.len(), 1);
+    assert_eq!(ready[0].node_id, "a");
+
+    // Complete a -> b and c both ready.
+    let ready = finish_node(&coordinator, &run_id, "a", "slot-a");
+    let mut ids: Vec<&str> = ready.iter().map(|n| n.node_id.as_str()).collect();
+    ids.sort_unstable();
+    assert_eq!(ids, vec!["b", "c"], "b and c ready after a");
+
+    // Complete only b -> d still pending.
+    let ready = finish_node(&coordinator, &run_id, "b", "slot-b");
+    assert!(ready.is_empty(), "d waits for c too");
+
+    // Complete c -> d ready.
+    let ready = finish_node(&coordinator, &run_id, "c", "slot-c");
+    assert_eq!(ready.len(), 1);
+    assert_eq!(ready[0].node_id, "d");
+}
+
+/// A cyclic definition must be rejected at `start_dag` time (validation gate).
+#[test]
+fn dag_rejects_cycle_before_execution() {
+    let coordinator = coordinator();
+    let def = super::dag::WorkflowDef {
+        nodes: vec![dag_node("x", "slot-x", &["y"]), dag_node("y", "slot-y", &["x"])],
+    };
+    assert!(matches!(coordinator.start_dag(def), Err(super::dag::DagError::Cycle { .. })));
+}

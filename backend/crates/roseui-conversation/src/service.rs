@@ -17,7 +17,7 @@ use crate::runtime_state::ConversationRuntimeStateService;
 use roseui_api_types::ChatFileRef;
 use roseui_api_types::{
     ApprovalCheckResponse, AssistantConversationOverridesRequest, CancelConversationResponse, CloneConversationRequest,
-    ConfirmRequest, ConfirmationListResponse, ConversationArtifactKind, ConversationArtifactListResponse,
+    CompactConversationResponse, CompactConversationStatus, ConfirmRequest, ConfirmationListResponse, ConversationArtifactKind, ConversationArtifactListResponse,
     ConversationArtifactResponse, ConversationArtifactStatus, ConversationListResponse, ConversationMcpStatus,
     ConversationMcpStatusKind, ConversationResponse, ConversationRuntimeSummary, CreateConversationRequest,
     EnsureConversationRuntimeResponse, ListConversationsQuery, ListMessagesQuery, MessageListResponse, MessageResponse,
@@ -29,12 +29,13 @@ use roseui_common::{
     AgentKillReason, AgentType, ConversationSource, ConversationStatus, ErrorChain, MessageType, OnConversationDelete,
     PaginatedResult, WorkspacePathValidationError, generate_short_id, now_ms, validate_workspace_path_availability,
 };
-use roseui_db::models::{AssistantDefinitionRow, ConversationAssistantSnapshotRow, ConversationRow, MessageRow};
+use roseui_db::models::{AssistantDefinitionRow, ConversationAssistantSnapshotRow, ConversationRow, MessageRow, SessionEventRow};
 use roseui_db::{
     AgentBindingResolution, ConversationFilters, ConversationRowUpdate, CreateAcpSessionParams, IAcpSessionRepository,
     IAgentMetadataRepository, IAssistantDefinitionRepository, IAssistantOverlayRepository,
     IAssistantPreferenceRepository, IConversationRepository, IMcpServerRepository, MessagePageCursor,
-    MessagePageDirection, MessagePageParams, SaveRuntimeStateParams, UpsertConversationAssistantSnapshotParams,
+    MessagePageDirection, MessagePageParams, SaveRuntimeStateParams,
+    UpsertConversationAssistantSnapshotParams,
     resolve_agent_binding_from_rows,
 };
 use roseui_extension::AssistantRuleDispatcher;
@@ -2552,6 +2553,33 @@ impl ConversationService {
         })
     }
 
+    /// Returns the session trace (监控录像) events for a conversation, optionally
+    /// filtered by event kind, model, or date range. Ownership of the conversation
+    /// is verified by the repository layer. Used by the per-conversation "轨迹" view.
+    pub async fn list_session_events(
+        &self,
+        user_id: &str,
+        conversation_id: &str,
+        filters: roseui_db::SessionEventFilters,
+    ) -> Result<Vec<SessionEventRow>, ConversationError> {
+        self.conversation_repo
+            .list_session_events(user_id, conversation_id, &filters)
+            .await
+            .map_err(ConversationError::from)
+    }
+
+    /// Returns the user's own text messages (提问) for the trace timeline view.
+    pub async fn list_user_questions(
+        &self,
+        user_id: &str,
+        conversation_id: &str,
+    ) -> Result<Vec<roseui_db::UserQuestionRow>, ConversationError> {
+        self.conversation_repo
+            .list_user_questions(user_id, conversation_id)
+            .await
+            .map_err(ConversationError::from)
+    }
+
     /// Return one full message for a conversation after verifying ownership.
     pub async fn get_message(
         &self,
@@ -3078,6 +3106,42 @@ impl ConversationService {
                 ConversationTurnStatus::Failed => ConversationAgentTurnStatus::Failed,
             },
             error_message: result.error_message,
+        })
+    }
+
+    /// Compress the conversation's context by running the engine's built-in
+    /// `/compact` command as a hidden in-conversation turn.
+    ///
+    /// The command message is never persisted (`persist_user_message: false`),
+    /// so the conversation history stays clean. The engine locally summarizes
+    /// prior context; the usage snapshot reported afterwards reflects the
+    /// reduced context window.
+    pub async fn compact_conversation(
+        &self,
+        user_id: &str,
+        conversation_id: &str,
+    ) -> Result<CompactConversationResponse, ConversationError> {
+        let outcome = self
+            .run_agent_turn(ConversationAgentTurnRequest {
+                user_id: user_id.to_owned(),
+                conversation_id: conversation_id.to_owned(),
+                content: "/compact".to_owned(),
+                files: Vec::new(),
+                inject_skills: Vec::new(),
+                required_runtime_mode: None,
+                persist_user_message: false,
+                user_message_hidden: true,
+                on_started: None,
+            })
+            .await?;
+
+        Ok(CompactConversationResponse {
+            conversation_id: outcome.conversation_id,
+            turn_id: outcome.turn_id,
+            status: match outcome.status {
+                ConversationAgentTurnStatus::Completed => CompactConversationStatus::Completed,
+                ConversationAgentTurnStatus::Failed => CompactConversationStatus::Failed,
+            },
         })
     }
 

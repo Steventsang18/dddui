@@ -86,6 +86,40 @@ pub(super) struct CoordinatorState {
     pub(super) intents: HashMap<String, WorkIntent>,
     pub(super) enqueue_leases: HashMap<String, EnqueueLeaseRecord>,
     next_operation_id: u64,
+    /// Active workflow DAG runs, keyed by an opaque run id. Each run tracks the
+    /// planned order, which nodes have started/completed/failed, and the mapping
+    /// from a `WorkIntent` id back to its workflow node so batch terminal events
+    /// can advance the schedule. Purely additive state — never read by the
+    /// single-message path.
+    pub(super) dag_runs: HashMap<String, DagRunState>,
+}
+
+/// Per-run state for a workflow DAG execution.
+#[derive(Debug, Clone)]
+pub(super) struct DagRunState {
+    #[allow(dead_code)]
+    pub(super) run_id: String,
+    pub(super) def: super::dag::WorkflowDef,
+    /// node id -> intent id actually enqueued (only for dispatched nodes).
+    pub(super) node_to_intent: HashMap<String, String>,
+    /// intent id -> node id (inverse, for terminal-event lookup).
+    pub(super) intent_to_node: HashMap<String, String>,
+    /// node ids that have been handed to the session layer for real enqueue
+    /// (locally records dispatch to avoid double-dispatch under concurrency).
+    pub(super) started: HashSet<String>,
+    pub(super) completed: HashSet<String>,
+    pub(super) failed: HashSet<String>,
+}
+
+/// A workflow node that is ready to execute: all dependencies are completed and
+/// it has not yet been dispatched. The session layer turns this into a real
+/// mailbox message + enqueue + reconcile notify so the worker actually runs it.
+#[derive(Debug, Clone)]
+pub(crate) struct DagReadyNode {
+    pub run_id: String,
+    pub node_id: String,
+    pub slot_id: String,
+    pub prompt: String,
 }
 
 pub(crate) struct SlotWorkCoordinator {
@@ -611,12 +645,162 @@ impl SlotWorkCoordinator {
         CommitResult::Committed
     }
 
+    // Kept for the single-message-path unit tests; production code advances DAG
+    // runs via `complete_dag_batch`/`fail_dag_batch` (which also return ready
+    // successors). `#[allow(dead_code)]` because only tests reference it.
+    #[allow(dead_code)]
     pub(crate) fn complete_batch(&self, batch: &WorkBatch) -> CommitResult {
-        self.terminalize_batch(batch, WorkIntentState::Completed, "completed")
+        let r = self.terminalize_batch(batch, WorkIntentState::Completed, "completed");
+        self.on_batch_terminal(batch, true);
+        r
+    }
+
+    // --- Workflow DAG execution -------------------------------------------
+    //
+    // The methods below implement the *execution* half of the workflow DAG
+    // (see `dag.rs` for the pure validation half). A DAG run is started via
+    // `start_dag`, which validates the definition, records run state, and pumps
+    // the initial ready nodes. As batches terminal (complete/fail), the run
+    // state advances and newly-ready successors are enqueued. All scheduling
+    // reuses the existing `acquire_enqueue`/`commit_enqueue` choke-points, so
+    // the single-message path is untouched.
+
+    /// Start a workflow DAG. Validates the definition (cycle/dependency check)
+    /// and returns the run id plus the initial set of ready nodes. The caller
+    /// (session layer) is responsible for actually enqueuing each ready node as
+    /// a real mailbox message — the coordinator only performs pure scheduling.
+    pub(crate) fn start_dag(&self, def: super::dag::WorkflowDef) -> Result<(String, Vec<DagReadyNode>), super::dag::DagError> {
+        // Validate first (cycle/dependency check); the planned order is recomputed
+        // from `def` inside `pump_dag` via each node's `depends_on`, so we only
+        // need the validation side effect here.
+        def.plan()?;
+        let run_id = generate_id();
+        let mut state = self.lock_state();
+        state.dag_runs.insert(
+            run_id.clone(),
+            DagRunState {
+                run_id: run_id.clone(),
+                def,
+                node_to_intent: HashMap::new(),
+                intent_to_node: HashMap::new(),
+                started: HashSet::new(),
+                completed: HashSet::new(),
+                failed: HashSet::new(),
+            },
+        );
+        drop(state);
+        let ready = self.pump_dag(&run_id);
+        Ok((run_id, ready))
+    }
+
+    /// Compute (without enqueueing) every node whose dependencies are all
+    /// completed and that has not yet been dispatched. Called after `start_dag`
+    /// and after each batch terminal. Marks dispatched nodes in `started` under
+    /// the lock so concurrent pumps never double-dispatch the same node.
+    fn pump_dag(&self, run_id: &str) -> Vec<DagReadyNode> {
+        let mut ready = Vec::new();
+        loop {
+            let mut state = self.lock_state();
+            let Some(run) = state.dag_runs.get(run_id) else { return ready };
+            // Find a node ready to dispatch: not started, not failed, and all
+            // deps completed.
+            let next: Option<super::dag::WorkflowNode> = run
+                .def
+                .nodes
+                .iter()
+                .find(|n| {
+                    !run.started.contains(&n.id)
+                        && !run.failed.contains(&n.id)
+                        && n.depends_on.iter().all(|d| run.completed.contains(d))
+                })
+                .cloned();
+            let Some(node) = next else { return ready };
+            // Mark started before dropping the lock to avoid double-dispatch.
+            state
+                .dag_runs
+                .get_mut(run_id)
+                .unwrap()
+                .started
+                .insert(node.id.clone());
+            drop(state);
+            ready.push(DagReadyNode {
+                run_id: run_id.to_owned(),
+                node_id: node.id,
+                slot_id: node.slot_id,
+                prompt: node.prompt,
+            });
+        }
+    }
+
+    /// Roll back the dispatch marker for a node when the session layer fails to
+    /// enqueue it, so it can be re-pumped on the next terminal event.
+    pub(crate) fn unmark_dispatched(&self, run_id: &str, node_id: &str) {
+        let mut state = self.lock_state();
+        if let Some(run) = state.dag_runs.get_mut(run_id) {
+            run.started.remove(node_id);
+        }
+    }
+
+    /// Backfill the node→intent mapping once the session layer has successfully
+    /// enqueued a DAG node as a real mailbox message.
+    pub(crate) fn record_dag_mapping(&self, run_id: &str, node_id: &str, intent_id: &str) {
+        let mut state = self.lock_state();
+        if let Some(run) = state.dag_runs.get_mut(run_id) {
+            run.node_to_intent.insert(node_id.to_owned(), intent_id.to_owned());
+            run.intent_to_node.insert(intent_id.to_owned(), node_id.to_owned());
+        }
+    }
+
+    /// Advance a DAG run when a batch (one or more intents) terminates. Maps the
+    /// batch's intent ids back to workflow nodes and marks them completed/failed,
+    /// then returns the newly-ready successor nodes for the caller to enqueue.
+    fn on_batch_terminal(&self, batch: &WorkBatch, succeeded: bool) -> Vec<DagReadyNode> {
+        let mut affected_runs: Vec<String> = Vec::new();
+        {
+            let mut state = self.lock_state();
+            for intent_id in &batch.intent_ids {
+                for (run_id, run) in state.dag_runs.iter_mut() {
+                    if let Some(node_id) = run.intent_to_node.get(intent_id).cloned() {
+                        if succeeded {
+                            run.completed.insert(node_id);
+                        } else {
+                            run.failed.insert(node_id);
+                        }
+                        if !affected_runs.contains(run_id) {
+                            affected_runs.push(run_id.clone());
+                        }
+                    }
+                }
+            }
+        }
+        let mut ready = Vec::new();
+        for run_id in affected_runs {
+            ready.extend(self.pump_dag(&run_id));
+        }
+        ready
+    }
+
+    /// Complete a batch and advance any affected DAG runs, returning the newly
+    /// ready successor nodes so the caller can enqueue them as real work.
+    pub(crate) fn complete_dag_batch(&self, batch: &WorkBatch) -> (CommitResult, Vec<DagReadyNode>) {
+        let r = self.terminalize_batch(batch, WorkIntentState::Completed, "completed");
+        let ready = self.on_batch_terminal(batch, true);
+        (r, ready)
+    }
+
+    /// Fail a batch and advance any affected DAG runs, returning the newly ready
+    /// successor nodes (a failed node does not unblock dependents, but the run
+    /// bookkeeping still advances).
+    pub(crate) fn fail_dag_batch(&self, batch: &WorkBatch, classification: &'static str) -> (CommitResult, Vec<DagReadyNode>) {
+        let r = self.terminalize_batch(batch, WorkIntentState::Failed { classification }, classification);
+        let ready = self.on_batch_terminal(batch, false);
+        (r, ready)
     }
 
     pub(crate) fn fail_batch(&self, batch: &WorkBatch, classification: &'static str) -> CommitResult {
-        self.terminalize_batch(batch, WorkIntentState::Failed { classification }, classification)
+        let r = self.terminalize_batch(batch, WorkIntentState::Failed { classification }, classification);
+        self.on_batch_terminal(batch, false);
+        r
     }
 
     pub(crate) fn cancel_batch(&self, batch: &WorkBatch, classification: &'static str) -> CommitResult {

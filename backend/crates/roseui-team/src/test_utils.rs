@@ -1349,6 +1349,7 @@ pub(crate) mod workspace_harness {
             Arc::new(NoopTurnPort),
             Arc::new(NoopCancellationPort),
             Arc::new(std::path::PathBuf::from("/tmp/dodiddoneui-test")),
+            Arc::new(std::path::PathBuf::from("data")),
         );
         (svc, team_repo, task_manager, conv_repo, broadcaster)
     }

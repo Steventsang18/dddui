@@ -8,7 +8,7 @@ mod instance_lock;
 mod legacy_handoff;
 mod migrate_repair;
 pub mod models;
-mod repository;
+pub mod repository;
 
 pub use agent_binding::{
     AgentBindingResolution, binding_resolution_for_agent, resolve_agent_binding, resolve_agent_binding_for_user,
@@ -36,7 +36,8 @@ pub use models::{
 pub use repository::channel::UpdatePluginStatusParams;
 pub use repository::conversation::{
     ConversationFilters, ConversationRowUpdate, MessagePageCursor, MessagePageDirection, MessagePageParams,
-    MessagePageResult, MessageRowUpdate, MessageSearchRow, StaleRuntimeMessageRow,
+    MessagePageResult, MessageRowUpdate, MessageSearchRow, SessionEventFilters, StaleRuntimeMessageRow,
+    UserQuestionRow,
 };
 pub use repository::cron::{
     ClaimCronRunParams, CronRunClaimResult, FinishCronRunParams, RecoverableCronRun, UpdateCronJobParams,

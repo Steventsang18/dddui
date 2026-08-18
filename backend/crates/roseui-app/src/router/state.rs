@@ -757,6 +757,7 @@ pub fn build_team_state(
         cancellation_port,
         slash_command_port,
         backend_binary_path,
+        Arc::new(services.data_dir.clone()),
         roseui_team::TeamPromptDumpConfig::from_data_dir(&services.data_dir, services.dump_prompts),
     );
     service.with_project_service(Arc::new(services.project_service.clone()));

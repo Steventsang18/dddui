@@ -871,6 +871,7 @@ mod tests {
             base.turn_port.clone(),
             base.cancellation_port.clone(),
             base.backend_binary_path.clone(),
+            Arc::new(std::path::PathBuf::from("data")),
         )
     }
 
@@ -940,6 +941,7 @@ mod tests {
             base.turn_port.clone(),
             base.cancellation_port.clone(),
             base.backend_binary_path.clone(),
+            Arc::new(std::path::PathBuf::from("data")),
         );
 
         let assistants = svc.list_team_selectable_assistants("user1").await;
@@ -1115,6 +1117,7 @@ mod tests {
             svc.turn_port.clone(),
             svc.cancellation_port.clone(),
             svc.backend_binary_path.clone(),
+            Arc::new(std::path::PathBuf::from("data")),
         );
 
         let (backend, model) = svc

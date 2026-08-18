@@ -1,4 +1,6 @@
 mod coordinator;
+pub(crate) mod dag;
+pub(crate) use coordinator::DagReadyNode;
 mod model;
 mod snapshot;
 

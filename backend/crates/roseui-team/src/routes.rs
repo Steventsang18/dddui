@@ -12,8 +12,8 @@ use roseui_ai_agent::ActiveLeaseRegistry;
 use roseui_api_types::{
     AddAgentRequest, ApiResponse, CancelTeamChildTurnRequest, CancelTeamRunRequest, CreateTeamRequest,
     GetConfigOptionsResponse, PauseTeamSlotRequest, RenameAgentRequest, RenameTeamRequest, SendAgentMessageRequest,
-    SendTeamMessageRequest, SetModeRequest, TeamAgentResponse, TeamListResponse, TeamResponse, TeamRunAckResponse,
-    TeamRunStateResponse,
+    SendTeamMessageRequest, SetModeRequest, StartWorkflowRequest, StartWorkflowResponse, TeamAgentResponse, TeamListResponse,
+    TeamResponse, TeamRunAckResponse, TeamRunStateResponse,
 };
 use roseui_auth::CurrentUser;
 use roseui_common::ApiError;
@@ -116,6 +116,7 @@ pub fn team_routes(state: TeamRouterState) -> Router {
             post(pause_slot_work),
         )
         .route("/api/teams/{id}/session", post(ensure_session).delete(stop_session))
+        .route("/api/teams/{id}/workflow", post(start_workflow))
         .route("/api/teams/{id}/active-lease", post(active_lease))
         .route("/api/teams/{id}/session-mode", post(set_session_mode))
         .with_state(state)
@@ -354,6 +355,16 @@ async fn ensure_session(
 ) -> Result<Json<ApiResponse<()>>, ApiError> {
     state.service.ensure_session(&user.id, &id).await?;
     Ok(Json(ApiResponse::success()))
+}
+
+async fn start_workflow(
+    State(state): State<TeamRouterState>,
+    Extension(user): Extension<CurrentUser>,
+    Path(id): Path<String>,
+    Json(req): Json<StartWorkflowRequest>,
+) -> Result<Json<ApiResponse<StartWorkflowResponse>>, ApiError> {
+    let run_id = state.service.start_workflow(&user.id, &id, req).await?;
+    Ok(Json(ApiResponse::ok(StartWorkflowResponse { run_id })))
 }
 
 async fn get_conversation_config_options(

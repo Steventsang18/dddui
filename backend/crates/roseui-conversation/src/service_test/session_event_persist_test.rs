@@ -101,6 +101,43 @@ async fn persist_tool_call_writes_session_event_with_redaction() {
 }
 
 #[tokio::test]
+async fn insert_session_event_model_call_persists() {
+    let db = init_database_memory().await.unwrap();
+    let user_id = "trace-user-3";
+    let conv_id = "trace-conv-3";
+    seed_test_user(db.pool(), user_id).await;
+    seed_conversation(db.pool(), user_id, conv_id).await;
+
+    let repo = Arc::new(SqliteConversationRepository::new(db.pool().clone()));
+    let event = roseui_db::models::SessionEventRow {
+        id: "trace_model_1".to_owned(),
+        conversation_id: conv_id.to_owned(),
+        turn_seq: 0,
+        event_kind: "model_call".to_owned(),
+        role: Some("assistant".to_owned()),
+        model: Some("claude-sonnet-4".to_owned()),
+        input_json: "{}".to_owned(),
+        output_json: "{}".to_owned(),
+        token_usage_json: json!({ "duration_ms": 1234 }).to_string(),
+        status: Some("finish".to_owned()),
+        created_at: 1,
+    };
+    repo.insert_session_event(user_id, &event).await.unwrap();
+
+    let row = sqlx::query(
+        "SELECT event_kind, model, token_usage_json, status FROM session_events WHERE conversation_id = ?",
+    )
+    .bind(conv_id)
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(row.get::<String, _>("event_kind"), "model_call");
+    assert_eq!(row.get::<String, _>("model"), "claude-sonnet-4");
+    assert_eq!(row.get::<String, _>("token_usage_json"), "{\"duration_ms\":1234}");
+    assert_eq!(row.get::<String, _>("status"), "finish");
+}
+
+#[tokio::test]
 async fn flush_text_segment_writes_text_session_event() {
     let db = init_database_memory().await.unwrap();
     let user_id = "trace-user-2";
@@ -136,4 +173,104 @@ async fn flush_text_segment_writes_text_session_event() {
     assert_eq!(rows[0].get::<String, _>("event_kind"), "text");
     let out: serde_json::Value = serde_json::from_str(&rows[0].get::<String, _>("output_json")).unwrap();
     assert_eq!(out.get("content").and_then(|v| v.as_str()), Some("你好，这是一段回复"));
+}
+
+#[tokio::test]
+async fn list_session_events_filters_by_kind_model_and_range() {
+    let db = init_database_memory().await.unwrap();
+    let user_id = "trace-user-4";
+    let conv_id = "trace-conv-4";
+    seed_test_user(db.pool(), user_id).await;
+    seed_conversation(db.pool(), user_id, conv_id).await;
+
+    let repo = SqliteConversationRepository::new(db.pool().clone());
+    let make = |id: &str, kind: &str, model: &str, ts: i64, seq: i64| roseui_db::models::SessionEventRow {
+        id: id.to_owned(),
+        conversation_id: conv_id.to_owned(),
+        turn_seq: seq,
+        event_kind: kind.to_owned(),
+        role: Some("assistant".to_owned()),
+        model: Some(model.to_owned()),
+        input_json: "{}".to_owned(),
+        output_json: "{}".to_owned(),
+        token_usage_json: "{}".to_owned(),
+        status: Some("finish".to_owned()),
+        created_at: ts,
+    };
+    // 3 条：两个 model_call（不同模型/时间），一个 tool_call
+    repo.insert_session_event(user_id, &make("e1", "model_call", "claude-sonnet-4", 1000, 1)).await.unwrap();
+    repo.insert_session_event(user_id, &make("e2", "tool_call", "claude-sonnet-4", 2000, 2)).await.unwrap();
+    repo.insert_session_event(user_id, &make("e3", "model_call", "gpt-4o", 3000, 3)).await.unwrap();
+
+    // 全量：按 turn_seq 升序返回 3 条
+    let all = repo
+        .list_session_events(user_id, conv_id, &Default::default())
+        .await
+        .unwrap();
+    assert_eq!(all.len(), 3);
+    assert_eq!(all[0].id, "e1");
+    assert_eq!(all[2].id, "e3");
+
+    // 按 event_kind 过滤
+    let only_model = repo
+        .list_session_events(
+            user_id,
+            conv_id,
+            &roseui_db::SessionEventFilters {
+                event_kind: Some("model_call".to_owned()),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(only_model.len(), 2);
+    assert!(only_model.iter().all(|e| e.event_kind == "model_call"));
+
+    // 按 model 子串过滤
+    let only_sonnet = repo
+        .list_session_events(
+            user_id,
+            conv_id,
+            &roseui_db::SessionEventFilters {
+                model: Some("sonnet".to_owned()),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(only_sonnet.len(), 2);
+    assert!(only_sonnet.iter().all(|e| e.model.as_deref() == Some("claude-sonnet-4")));
+
+    // 按时间范围过滤（仅 1000~2000）
+    let ranged = repo
+        .list_session_events(
+            user_id,
+            conv_id,
+            &roseui_db::SessionEventFilters {
+                from_ts: Some(1000),
+                to_ts: Some(2000),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(ranged.len(), 2);
+    assert_eq!(ranged[0].id, "e1");
+    assert_eq!(ranged[1].id, "e2");
+
+    // 交叉过滤：model_call + sonnet
+    let combined = repo
+        .list_session_events(
+            user_id,
+            conv_id,
+            &roseui_db::SessionEventFilters {
+                event_kind: Some("model_call".to_owned()),
+                model: Some("sonnet".to_owned()),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(combined.len(), 1);
+    assert_eq!(combined[0].id, "e1");
 }

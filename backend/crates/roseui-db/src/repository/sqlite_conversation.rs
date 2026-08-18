@@ -9,7 +9,8 @@ use crate::models::{
 };
 use crate::repository::conversation::{
     ConversationFilters, ConversationRowUpdate, IConversationRepository, MessagePageCursor, MessagePageDirection,
-    MessagePageParams, MessagePageResult, MessageRowUpdate, MessageSearchRow, StaleRuntimeMessageRow,
+    MessagePageParams, MessagePageResult, MessageRowUpdate, MessageSearchRow, SessionEventFilters,
+    StaleRuntimeMessageRow, UserQuestionRow,
 };
 
 /// Bump `conversations.updated_at` so the conversation-list sort
@@ -912,6 +913,104 @@ impl IConversationRepository for SqliteConversationRepository {
                 Err(e)
             }
         }
+    }
+
+    async fn list_session_events(
+        &self,
+        user_id: &str,
+        conversation_id: &str,
+        filters: &SessionEventFilters,
+    ) -> Result<Vec<SessionEventRow>, DbError> {
+        self.ensure_conversation_for_user(user_id, conversation_id).await?;
+
+        // Build the WHERE clause dynamically but always keep conversation_id as
+        // the first bound parameter (authorization boundary).
+        let mut sql = String::from(
+            "SELECT id, conversation_id, turn_seq, event_kind, role, model, \
+             input_json, output_json, token_usage_json, status, created_at \
+             FROM session_events WHERE conversation_id = ?",
+        );
+        let mut binds: Vec<String> = Vec::new();
+        binds.push(conversation_id.to_string());
+
+        if let Some(kind) = &filters.event_kind {
+            sql.push_str(" AND event_kind = ?");
+            binds.push(kind.clone());
+        }
+        if let Some(model) = &filters.model {
+            // Substring match so partial model names filter intuitively.
+            sql.push_str(" AND model LIKE ? ESCAPE '\\'");
+            binds.push(format!("%{}%", model.replace('\\', "\\\\").replace('%', "\\%")));
+        }
+        if let Some(from_ts) = filters.from_ts {
+            sql.push_str(" AND created_at >= ?");
+            binds.push(from_ts.to_string());
+        }
+        if let Some(to_ts) = filters.to_ts {
+            sql.push_str(" AND created_at <= ?");
+            binds.push(to_ts.to_string());
+        }
+        sql.push_str(" ORDER BY turn_seq ASC, created_at ASC LIMIT ?");
+        binds.push(filters.effective_limit().to_string());
+
+        let mut query = sqlx::query(&sql);
+        for b in &binds {
+            query = query.bind(b.clone());
+        }
+
+        let rows = query.fetch_all(&self.pool).await?;
+
+        let mut events = Vec::with_capacity(rows.len());
+        for row in rows {
+            events.push(SessionEventRow {
+                id: row.get("id"),
+                conversation_id: row.get("conversation_id"),
+                turn_seq: row.get("turn_seq"),
+                event_kind: row.get("event_kind"),
+                role: row.get("role"),
+                model: row.get("model"),
+                input_json: row.get("input_json"),
+                output_json: row.get("output_json"),
+                token_usage_json: row.get("token_usage_json"),
+                status: row.get("status"),
+                created_at: row.get("created_at"),
+            });
+        }
+        Ok(events)
+    }
+
+    async fn list_user_questions(
+        &self,
+        user_id: &str,
+        conversation_id: &str,
+    ) -> Result<Vec<UserQuestionRow>, DbError> {
+        self.ensure_conversation_for_user(user_id, conversation_id).await?;
+
+        let rows = sqlx::query(
+            "SELECT id, content, created_at FROM messages \
+             WHERE conversation_id = ? AND type = 'text' AND position = 'right' AND hidden = 0 \
+             ORDER BY created_at ASC LIMIT 500",
+        )
+        .bind(conversation_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut out = Vec::with_capacity(rows.len());
+        for row in rows {
+            let raw: String = row.get("content");
+            // `messages.content` is normally `{"content": "..."}`; unwrap it so
+            // the trace view gets plain question text (fall back to raw).
+            let content = serde_json::from_str::<serde_json::Value>(&raw)
+                .ok()
+                .and_then(|v| v.get("content").and_then(|c| c.as_str()).map(String::from))
+                .unwrap_or(raw);
+            out.push(UserQuestionRow {
+                id: row.get("id"),
+                content,
+                created_at: row.get("created_at"),
+            });
+        }
+        Ok(out)
     }
 
     async fn upsert_message(&self, user_id: &str, message: &MessageRow) -> Result<(), DbError> {

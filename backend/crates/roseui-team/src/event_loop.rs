@@ -314,10 +314,13 @@ async fn execute_and_finalize(ctx: &AgentLoopContext, batch: WorkBatch, input: W
 
     mark_batch_messages_read(ctx, &batch).await;
     let terminal_status = if outcome.status.is_success() {
-        (ctx.session.work_coordinator().complete_batch(&batch) == CommitResult::Committed)
+        let (committed, ready) = ctx.session.work_coordinator().complete_dag_batch(&batch);
+        ctx.session.dispatch_dag_ready(ready).await;
+        (committed == CommitResult::Committed)
             .then_some(TeamRunStatus::Completed)
     } else {
-        let committed = ctx.session.work_coordinator().fail_batch(&batch, "turn_failed");
+        let (committed, ready) = ctx.session.work_coordinator().fail_dag_batch(&batch, "turn_failed");
+        ctx.session.dispatch_dag_ready(ready).await;
         let _ = ctx.scheduler.set_status(&ctx.slot_id, TeammateStatus::Error).await;
         (committed == CommitResult::Committed).then_some(TeamRunStatus::Failed)
     };

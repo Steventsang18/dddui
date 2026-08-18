@@ -1,4 +1,6 @@
-import { Message, Modal, Spin } from '@arco-design/web-react';
+import { Button, Message, Modal, Spin } from '@arco-design/web-react';
+import { createPortal } from 'react-dom';
+import RoseModal from '@renderer/components/base/RoseModal';
 import { FullScreen, Left, OffScreen, Peoples, Right } from '@icon-park/react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -24,6 +26,8 @@ import TeamAgentIdentity from './components/TeamAgentIdentity';
 import TeamViewToggle from './components/TeamViewToggle';
 import TeamWarmupOverlay from './components/TeamWarmupOverlay';
 import { useTeamViewMode } from './hooks/useTeamViewMode';
+import DagWorkflowModal from './components/workflow/DagWorkflowModal';
+import dagGuideHtml from '@renderer/assets/guide/dag-guide.html?raw';
 import { useTeamWarmup, type TeamWarmupMemberState, type TeamWarmupPhase } from './hooks/useTeamWarmup';
 import { TeamTabsProvider, useTeamTabs } from './hooks/TeamTabsContext';
 import { TeamIdentityProvider } from './identity/TeamIdentityContext';
@@ -161,9 +165,9 @@ const AssistantChatSlot: React.FC<{
     [warmupStatus, warmupDisabled, team_id, assistant.slot_id]
   );
   // 抬头不叠身份色底（避免压低彩色名字的可读性）；成员身份仅由抬头里的“彩色名字”承担。
-  // 列身体保留极淡身份色底作弱提示，不影响气泡阅读。
+  // 白天内容栏纯白治理：列身体不再叠身份色底，保持纯白。
   return (
-    <div className='flex flex-col h-full' style={{ background: `color-mix(in srgb, ${color} 4%, var(--bg-base))` }}>
+    <div className='flex flex-col h-full bg-base'>
       <div className='flex items-center justify-between gap-8px px-12px h-40px shrink-0 border-b border-solid border-[color:var(--border-base)] relative z-10 bg-1'>
         <TeamAgentIdentity
           assistant_name={assistant.assistant_name}
@@ -249,6 +253,14 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({
   const assistantRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
+  const [workflowVisible, setWorkflowVisible] = useState(false);
+  const [guideVisible, setGuideVisible] = useState(false);
+  // Tooltip for the "?" guide button. Rendered via portal into <body> with
+  // position:fixed so the header's `contain:paint` + `overflow-hidden` never
+  // clips it (a pure-CSS ::after below the button would be cut off).
+  const [guideTip, setGuideTip] = useState(false);
+  const [guideTipPos, setGuideTipPos] = useState<{ left: number; top: number }>({ left: 0, top: 0 });
+  const guideBtnRef = useRef<HTMLButtonElement>(null);
   // 视图模式（并行/单聊），按团队记忆。单聊 = 全屏当前选中成员。
   const [viewMode, setViewMode] = useTeamViewMode(team.id);
   const isSingleView = viewMode === 'single';
@@ -496,7 +508,43 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({
           isTemporaryWorkspace={isTeamWorkspaceTemporary}
           workspacePreferenceKey={team.id}
           onRenameTitle={onRenameTeam}
-          headerExtra={assistants.length > 1 ? <TeamViewToggle value={viewMode} onChange={setViewMode} /> : undefined}
+          headerExtra={
+            <div className='flex items-center gap-8px'>
+              {assistants.length > 1 && <TeamViewToggle value={viewMode} onChange={setViewMode} />}
+              {assistants.length > 0 && (
+                <Button
+                  size='mini'
+                  type='outline'
+                  onClick={() => setWorkflowVisible(true)}
+                  className='shrink-0'
+                >
+                  {t('team.workflow.title', { defaultValue: 'Workflow' })}
+                </Button>
+              )}
+              <span className='relative inline-flex'>
+                <Button
+                  ref={guideBtnRef}
+                  size='mini'
+                  type='outline'
+                  shape='circle'
+                  onClick={() => setGuideVisible(true)}
+                  onMouseEnter={() => {
+                    const el = guideBtnRef.current;
+                    if (el) {
+                      const r = el.getBoundingClientRect();
+                      setGuideTipPos({ left: r.left + r.width / 2, top: r.bottom + 8 });
+                    }
+                    setGuideTip(true);
+                  }}
+                  onMouseLeave={() => setGuideTip(false)}
+                  aria-label='Workflow guide'
+                  className='shrink-0'
+                >
+                  ?
+                </Button>
+              </span>
+            </div>
+          }
           headerLeading={
             <span className='inline-flex w-16px h-16px items-center justify-center shrink-0 leading-none text-t-primary'>
               <Peoples theme='outline' size='16' fill='currentColor' style={{ lineHeight: 0 }} />
@@ -619,6 +667,47 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({
             )}
           </div>
         </ChatLayout>
+        <DagWorkflowModal team={team} visible={workflowVisible} onClose={() => setWorkflowVisible(false)} />
+        <RoseModal
+          visible={guideVisible}
+          onCancel={() => setGuideVisible(false)}
+          variant='standard'
+          size='large'
+          header={{ title: t('team.workflow.guideTitle', { defaultValue: 'Workflow Guide' }) }}
+          footer={null}
+          contentStyle={{ padding: 0 }}
+        >
+          <iframe
+            title='DAG workflow guide'
+            srcDoc={dagGuideHtml}
+            style={{ width: '100%', height: '70vh', border: 'none', background: '#0f1115' }}
+          />
+        </RoseModal>
+        {guideTip &&
+          createPortal(
+            <span
+              style={{
+                position: 'fixed',
+                left: guideTipPos.left,
+                top: guideTipPos.top,
+                transform: 'translateX(-50%)',
+                background: 'var(--aion-overlay-bg, #0a0d15)',
+                color: 'var(--aion-overlay-text, #e9edf6)',
+                border: '1px solid var(--aion-overlay-border, #2a3142)',
+                fontSize: 12,
+                lineHeight: 1.5,
+                padding: '6px 10px',
+                borderRadius: 8,
+                whiteSpace: 'nowrap',
+                boxShadow: 'var(--aion-overlay-shadow, 0 12px 28px -14px rgba(0,0,0,0.9))',
+                pointerEvents: 'none',
+                zIndex: 99999,
+              }}
+            >
+              工作流指南
+            </span>,
+            document.body
+          )}
       </TeamIdentityProvider>
     </TeamPermissionProvider>
   );

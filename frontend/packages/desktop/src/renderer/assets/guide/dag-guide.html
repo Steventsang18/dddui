@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DAG 工作流使用指南 · DoDidDoneUi</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --bg-grad-1: #121622;
+    --bg-grad-2: #0c0f17;
+    --panel: #151a24;
+    --panel-2: #1b212e;
+    --panel-3: #212838;
+    --border: #2a3142;
+    --border-soft: #232a39;
+    --text: #eef1f7;
+    --text-2: #b3bccd;
+    --muted: #7f8aa0;
+    --primary: #7c9cff;
+    --primary-2: #5b7cff;
+    --primary-soft: rgba(124, 156, 255, 0.12);
+    --primary-glow: rgba(124, 156, 255, 0.28);
+    --green: #56d6ac;
+    --green-soft: rgba(86, 214, 172, 0.12);
+    --amber: #f0bd5e;
+    --radius-lg: 18px;
+    --radius: 13px;
+    --radius-sm: 9px;
+    --shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.75);
+    --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    --mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(124, 156, 255, 0.08), transparent 60%),
+      radial-gradient(900px 500px at 0% 0%, rgba(86, 214, 172, 0.05), transparent 55%),
+      linear-gradient(180deg, var(--bg-grad-1), var(--bg-grad-2));
+    background-attachment: fixed;
+    color: var(--text);
+    font-family: var(--font);
+    line-height: 1.72;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 40px 24px 72px; }
+
+  /* ---------- Hero ---------- */
+  header.hero {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: linear-gradient(155deg, rgba(124, 156, 255, 0.10), rgba(27, 33, 46, 0.6) 45%, var(--panel) 100%);
+    border-radius: var(--radius-lg);
+    padding: 34px 32px 30px;
+    box-shadow: var(--shadow);
+  }
+  header.hero::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: radial-gradient(620px 220px at 88% -40%, var(--primary-glow), transparent 70%);
+    pointer-events: none;
+  }
+  .brand {
+    position: relative;
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11.5px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--primary); font-weight: 700; margin: 0 0 14px;
+  }
+  .brand .pulse {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green); box-shadow: 0 0 0 4px var(--green-soft);
+  }
+  h1 {
+    position: relative;
+    font-size: 30px; line-height: 1.2; margin: 0 0 12px; font-weight: 760;
+    letter-spacing: -0.01em;
+    background: linear-gradient(92deg, #ffffff, #cdd8ff 60%, #9fb4ff);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .sub { position: relative; color: var(--text-2); margin: 0; font-size: 15px; max-width: 56ch; }
+
+  /* ---------- Sections ---------- */
+  section {
+    margin-top: 22px;
+    border: 1px solid var(--border-soft);
+    background: linear-gradient(180deg, rgba(27, 33, 46, 0.55), var(--panel) 120%);
+    border-radius: var(--radius-lg);
+    padding: 26px 28px;
+    box-shadow: 0 10px 30px -26px rgba(0, 0, 0, 0.8);
+    transition: border-color 0.25s ease, transform 0.25s ease;
+  }
+  section:hover { border-color: var(--border); }
+
+  h2 {
+    font-size: 19px; margin: 0 0 18px; display: flex; align-items: center; gap: 12px;
+    font-weight: 680; letter-spacing: -0.005em;
+  }
+  h2 .num {
+    width: 30px; height: 30px; border-radius: 9px; flex: none;
+    background: linear-gradient(150deg, var(--primary), var(--primary-2));
+    color: #0a0d15; font-weight: 800; font-size: 14px;
+    display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 16px -8px var(--primary-glow);
+  }
+  h3 {
+    font-size: 15.5px; margin: 22px 0 10px; color: var(--text);
+    font-weight: 660; letter-spacing: 0.01em;
+  }
+  p { color: var(--text-2); margin: 10px 0; font-size: 14.8px; }
+  strong { color: var(--text); font-weight: 650; }
+  ul { color: var(--text-2); font-size: 14.8px; padding-left: 0; margin: 12px 0; list-style: none; }
+  ul li {
+    position: relative; padding-left: 22px; margin: 9px 0;
+  }
+  ul li::before {
+    content: ""; position: absolute; left: 4px; top: 11px;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: linear-gradient(150deg, var(--primary), var(--green));
+  }
+  code {
+    background: var(--panel-3); border: 1px solid var(--border);
+    border-radius: 6px; padding: 1.5px 7px; font-size: 12.8px;
+    color: var(--amber); font-family: var(--mono);
+    letter-spacing: 0.01em;
+  }
+
+  /* ---------- Steps ---------- */
+  .steps { display: flex; flex-direction: column; gap: 12px; margin: 14px 0 4px; }
+  .step {
+    display: flex; gap: 14px; align-items: flex-start;
+    background: linear-gradient(180deg, rgba(33, 40, 56, 0.6), var(--panel-2));
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+  .step:hover { border-color: var(--primary); background: var(--panel-2); }
+  .step .k {
+    width: 26px; height: 26px; flex: none; border-radius: 50%;
+    background: linear-gradient(150deg, var(--primary), var(--primary-2));
+    color: #0a0d15; font-weight: 800; font-size: 13px;
+    display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 14px -8px var(--primary-glow);
+  }
+  .step .t { font-size: 14.6px; color: var(--text-2); line-height: 1.65; }
+  .step .t b { color: var(--text); font-weight: 650; }
+
+  /* ---------- Role cards ---------- */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0; }
+  .card {
+    position: relative; overflow: hidden;
+    background: linear-gradient(180deg, rgba(33, 40, 56, 0.55), var(--panel-2));
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius); padding: 18px 18px 16px;
+    transition: transform 0.22s ease, border-color 0.22s ease;
+  }
+  .card:hover { transform: translateY(-2px); }
+  .card.lead { border-top: 2px solid var(--primary); }
+  .card.mate { border-top: 2px solid var(--green); }
+  .card .role { font-weight: 720; font-size: 15px; margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+  .card.lead .role { color: var(--primary); }
+  .card.mate .role { color: var(--green); }
+  .card p { font-size: 13.8px; margin: 0; line-height: 1.66; }
+  .card .ico {
+    width: 22px; height: 22px; border-radius: 7px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800; color: #0a0d15;
+  }
+  .card.lead .ico { background: var(--primary); }
+  .card.mate .ico { background: var(--green); }
+
+  /* ---------- Flow ---------- */
+  .flow {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin: 16px 0; font-size: 13.6px;
+  }
+  .flow .node {
+    background: var(--panel-3); border: 1px solid var(--border);
+    border-radius: 9px; padding: 7px 13px; color: var(--text);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+  .flow .node.dim { opacity: 0.45; }
+  .flow .arrow { color: var(--muted); font-weight: 700; }
+
+  /* ---------- Case ---------- */
+  .case {
+    border: 1px solid var(--border-soft);
+    border-left: 3px solid var(--primary);
+    background: linear-gradient(180deg, rgba(33, 40, 56, 0.5), var(--panel-2));
+    border-radius: var(--radius); padding: 16px 18px; margin: 14px 0;
+    transition: border-color 0.2s ease;
+  }
+  .case:hover { border-left-color: var(--primary-2); }
+  .case .title { font-weight: 700; color: var(--text); margin: 0 0 10px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  .case p { font-size: 13.9px; margin: 12px 0 0; }
+  .tag {
+    display: inline-flex; align-items: center;
+    font-size: 11.5px; padding: 3px 9px; border-radius: 999px;
+    background: var(--primary-soft); color: var(--primary);
+    font-weight: 650; letter-spacing: 0.02em;
+  }
+
+  /* ---------- Inline UI button (visual affordance) ---------- */
+  .uibtn {
+    position: relative;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font); font-size: 13px; font-weight: 600;
+    padding: 4px 11px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--panel-3);
+    color: var(--text); cursor: default; white-space: nowrap;
+    vertical-align: middle;
+  }
+  .uibtn.primary {
+    background: linear-gradient(150deg, var(--primary), var(--primary-2));
+    border-color: transparent; color: #0a0d15; font-weight: 700;
+    box-shadow: 0 6px 16px -10px var(--primary-glow);
+  }
+  .uibtn.circle { width: 22px; height: 22px; padding: 0; justify-content: center; border-radius: 50%; color: var(--primary); font-weight: 800; }
+  .uibtn .caret { opacity: 0.7; font-size: 10px; }
+
+  /* ---------- Tooltip (instant, no lag) ---------- */
+  [data-tip] { position: relative; }
+  [data-tip]::after {
+    content: attr(data-tip);
+    position: absolute; left: 50%; bottom: calc(100% + 9px);
+    transform: translateX(-50%);
+    background: #0a0d15; color: #e9edf6;
+    border: 1px solid var(--border);
+    font-size: 12px; line-height: 1.5; font-weight: 500;
+    padding: 7px 11px; border-radius: 8px;
+    width: max-content; max-width: 240px; text-align: center;
+    box-shadow: 0 12px 28px -14px rgba(0, 0, 0, 0.9);
+    opacity: 0; pointer-events: none; z-index: 20;
+    transition: opacity 0.08s linear;
+  }
+  [data-tip]:hover::after { opacity: 1; }
+  [data-tip]::before {
+    content: ""; position: absolute; left: 50%; bottom: calc(100% + 3px);
+    transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: var(--border);
+    opacity: 0; pointer-events: none; z-index: 21;
+    transition: opacity 0.08s linear;
+  }
+  [data-tip]:hover::before { opacity: 1; }
+
+  .hint {
+    color: var(--muted); font-size: 13px; margin-top: 10px;
+    padding-left: 12px; border-left: 2px solid var(--border); font-style: normal;
+  }
+
+  footer {
+    color: var(--muted); font-size: 12.5px; text-align: center;
+    margin-top: 36px; letter-spacing: 0.02em;
+  }
+  footer span { color: var(--text-2); }
+
+  @media (max-width: 640px) {
+    .grid { grid-template-columns: 1fr; }
+    .wrap { padding: 24px 14px 56px; }
+    h1 { font-size: 25px; }
+    section { padding: 22px 18px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <p class="brand"><span class="pulse"></span>DoDidDoneUi · 团队工作流</p>
+    <h1>DAG 工作流使用指南</h1>
+    <p class="sub">把多个 Agent 编排成一条有先后顺序的自动化流水线，让它们像接力赛一样各司其职、协同完成复杂任务。</p>
+  </header>
+
+  <section>
+    <h2><span class="num">1</span>什么是 DAG 工作流</h2>
+    <p>
+      DAG（有向无环图）工作流让你把任务拆成多个<strong>步骤（节点）</strong>，每个步骤交给团队里的某个 Agent 执行，
+      并声明它<strong>依赖哪些前置步骤</strong>。系统会按依赖关系自动调度：只有当前置步骤完成后，后继步骤才会被触发。
+    </p>
+    <div class="flow">
+      <span class="node">① 调研 Agent</span><span class="arrow">→</span>
+      <span class="node">② 写作 Agent</span><span class="arrow">→</span>
+      <span class="node">③ 审校 Agent</span>
+    </div>
+    <p class="hint">上面的每一步都依赖上一步的产物（如文件、结论），因此必须按顺序执行——这正是 DAG 的用武之地。</p>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span>如何调用（3 步上手）</h2>
+    <div class="steps">
+      <div class="step">
+        <span class="k">1</span>
+        <span class="t"><b>进入团队</b>：在左侧打开一个至少有 2 名成员的团队（如包含 DDDcli 与 Claude Code 的团队）。</span>
+      </div>
+      <div class="step">
+        <span class="k">2</span>
+        <span class="t">
+          <b>点击「Workflow」按钮</b>：位于团队页右上角
+          <span class="uibtn" data-tip="打开流水线编排面板，按成员顺序生成默认 DAG，可调整步骤、填写指令与依赖">Workflow</span>
+          。点击后弹出流水线编排面板。
+        </span>
+      </div>
+      <div class="step">
+        <span class="k">3</span>
+        <span class="t">
+          <b>编排并运行</b>：面板已按成员顺序生成默认流水线。你可以
+          <code>↑ ↓</code> 调整顺序、为每步填写<strong>专属指令</strong>、用
+          <span class="uibtn" data-tip="为当前步骤选择前置步骤；仅可选排在其之前的步骤，避免形成环路">After ▾</span>
+          下拉框设置<strong>依赖关系</strong>，最后点
+          <span class="uibtn primary" data-tip="校验依赖图后启动整条流水线，各步骤按依赖完成顺序自动执行">Run pipeline</span>。
+        </span>
+      </div>
+    </div>
+    <p class="hint">运行后可在团队运行状态中观察每个步骤的进度；每一步完成后，依赖它的后继步骤会自动开始。</p>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span>Agent 是如何配合的</h2>
+    <p>团队里的 Agent 分两种角色，靠「信箱消息」与「依赖调度」两条机制协同：</p>
+    <div class="grid">
+      <div class="card lead">
+        <p class="role"><span class="ico">L</span>Lead（协调者）</p>
+        <p>通常是 DDDcli。负责理解总目标、拆解任务、把子任务派给各成员，并在流水线中承上启下。它也能直接产出文件（如规格说明、总结）。</p>
+      </div>
+      <div class="card mate">
+        <p class="role"><span class="ico">T</span>Teammate（执行者）</p>
+        <p>如 Claude Code、Hermes 等。专注于被指派的具体步骤，读取前置产物、完成自己的那部分工作（写代码、做测试、翻译等）。</p>
+      </div>
+    </div>
+    <h3>两条协同机制</h3>
+    <ul>
+      <li><strong>消息驱动</strong>：每个步骤会被写入对应 Agent 的「信箱」作为一条真实任务消息，Agent 像收到用户指令一样被唤醒并执行——所以它拿得到明确的步骤提示。</li>
+      <li><strong>依赖调度</strong>：调度器维护一张依赖图。某步骤的所有前置一旦完成，系统立即通知对应 Agent 认领并执行该步骤；未完成前则保持等待，绝不抢跑。</li>
+    </ul>
+    <p class="hint">这意味着：你无需手动等待每一步，整条流水线会自行「前一步完成 → 唤醒下一步」地跑下去，直到全部结束。</p>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span>三个实战案例</h2>
+
+    <div class="case">
+      <p class="title"><span class="tag">案例 A</span>研究报告流水线</p>
+      <div class="flow">
+        <span class="node">调研 Agent：搜集资料 + 写 spec.md</span><span class="arrow">→</span>
+        <span class="node">写作 Agent：据 spec 撰写 report.md</span><span class="arrow">→</span>
+        <span class="node">审校 Agent：通读并产出 README</span>
+      </div>
+      <p>适合把「找资料 → 写正文 → 做摘要」这类内容生产拆给不同专长的 Agent，质量与速度兼得。</p>
+    </div>
+
+    <div class="case">
+      <p class="title"><span class="tag">案例 B</span>代码从零到文档</p>
+      <div class="flow">
+        <span class="node">DDDcli：写需求规格 spec.md</span><span class="arrow">→</span>
+        <span class="node">Claude Code：实现 calc.py</span><span class="arrow">→</span>
+        <span class="node">DDDcli：据代码写 README.md</span>
+      </div>
+      <p>让执行型 Agent 专注写代码，协调者负责澄清需求与补文档，避免上下文混乱。</p>
+    </div>
+
+    <div class="case">
+      <p class="title"><span class="tag">案例 C</span>并行 + 汇聚（菱形）</p>
+      <div class="flow">
+        <span class="node">翻译官 A：译英文→中文</span><span class="arrow">↘</span>
+        <span class="node dim">原文</span><span class="arrow">↗</span>
+        <span class="node">翻译官 B：译英文→日文</span><span class="arrow">→</span>
+        <span class="node">审校：对照两版产出对照表</span>
+      </div>
+      <p>两个翻译步骤可<strong>并行</strong>进行，都完成后才触发审校——DAG 的「汇聚屏障」会等齐所有分支再继续。</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span>小贴士</h2>
+    <ul>
+      <li>步骤提示留空时，Agent 会沿用该成员在团队中的默认职责。</li>
+      <li>「After」只可选<strong>排在前面的步骤</strong>为依赖，避免成环（系统会拒绝有环的定义）。</li>
+      <li>每一步的产物（文件/结论）会留在团队工作区，后继步骤可直接读取。</li>
+      <li>想随时查看进度，关闭本指南回到团队页即可，流水线在后台继续执行。</li>
+    </ul>
+  </section>
+
+  <footer>DoDidDoneUi · 本地优先的团队智能体工作台 · <span>数据不出本机</span></footer>
+</div>
+</body>
+</html>

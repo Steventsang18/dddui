@@ -597,6 +597,39 @@ pub struct TeammateMessagePayload {
 }
 
 // ---------------------------------------------------------------------------
+// F. Workflow DAG — request/response DTOs
+// ---------------------------------------------------------------------------
+
+/// A single node in a workflow DAG. Mirrors the backend `WorkflowNode` schema;
+/// the service layer converts this DTO into the internal definition. `slot_id`
+/// must reference an existing team member; `depends_on` lists node ids that
+/// must complete before this node may start.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WorkflowNodeDto {
+    pub id: String,
+    #[serde(default)]
+    pub slot_id: String,
+    #[serde(default)]
+    pub prompt: String,
+    #[serde(default)]
+    pub depends_on: Vec<String>,
+}
+
+/// Start a workflow DAG on a team. The backend validates the definition
+/// (cycle/dependency check) before enqueuing any node.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct StartWorkflowRequest {
+    #[serde(default)]
+    pub nodes: Vec<WorkflowNodeDto>,
+}
+
+/// Run id assigned to the started workflow DAG.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct StartWorkflowResponse {
+    pub run_id: String,
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 

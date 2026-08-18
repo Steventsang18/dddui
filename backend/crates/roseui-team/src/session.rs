@@ -18,6 +18,8 @@ use crate::event_loop::EventLoopRegistry;
 use crate::events::{TEAM_CHILD_TURN_CANCELLED_EVENT, TeamEventEmitter};
 use crate::mailbox::Mailbox;
 use crate::mcp::{TeamMcpServer, TeamMcpStdioConfig, TeamMcpStdioServerSpec};
+use roseui_api_types::WikiMcpStdioConfig;
+use crate::work_coordinator::dag::{DagError, WorkflowDef};
 use crate::member_runtime::{
     AttachLease, AttachOutcome, BeginRemove, MemberRuntimeFailure, MemberRuntimeRegistry, MemberRuntimeSnapshot,
     ReserveAttach,
@@ -89,6 +91,11 @@ pub struct TeamSession {
     task_board: Arc<TaskBoard>,
     mcp_server: TeamMcpServer,
     backend_binary_path: Arc<PathBuf>,
+    /// Data directory of the host server. Used to derive the SQLite DB path
+    /// so the wiki MCP stdio bridge (`mcp-wiki-stdio`) can open the same
+    /// database the server uses — closing the loop that lets team agents read
+    /// the local knowledge base.
+    data_dir: Arc<PathBuf>,
     task_manager: Arc<dyn IWorkerTaskManager>,
     turn_port: Arc<dyn AgentTurnExecutionPort>,
     cancellation_port: Arc<dyn AgentTurnCancellationPort>,
@@ -137,6 +144,7 @@ impl TeamSession {
         repo: Arc<dyn ITeamRepository>,
         broadcaster: Arc<dyn EventBroadcaster>,
         backend_binary_path: Arc<PathBuf>,
+        data_dir: Arc<PathBuf>,
         task_manager: Arc<dyn IWorkerTaskManager>,
         turn_port: Arc<dyn AgentTurnExecutionPort>,
         cancellation_port: Arc<dyn AgentTurnCancellationPort>,
@@ -149,6 +157,7 @@ impl TeamSession {
             repo,
             broadcaster,
             backend_binary_path,
+            data_dir,
             task_manager,
             turn_port,
             cancellation_port,
@@ -166,6 +175,7 @@ impl TeamSession {
         repo: Arc<dyn ITeamRepository>,
         broadcaster: Arc<dyn EventBroadcaster>,
         backend_binary_path: Arc<PathBuf>,
+        data_dir: Arc<PathBuf>,
         task_manager: Arc<dyn IWorkerTaskManager>,
         turn_port: Arc<dyn AgentTurnExecutionPort>,
         cancellation_port: Arc<dyn AgentTurnCancellationPort>,
@@ -226,6 +236,7 @@ impl TeamSession {
             task_board,
             mcp_server,
             backend_binary_path,
+            data_dir,
             task_manager,
             turn_port,
             cancellation_port,
@@ -301,6 +312,85 @@ impl TeamSession {
         &self.work_coordinator
     }
 
+    /// Start a workflow DAG for this team session. Validates the definition
+    /// (cycle/dependency check) and enqueues the initial ready nodes; subsequent
+    /// nodes advance automatically as their predecessors complete. See
+    /// `work_coordinator::dag` for the schema and `SlotWorkCoordinator::start_dag`
+    /// for the scheduling implementation.
+    /// Start a workflow DAG for this team session. Validates the definition
+    /// (cycle/dependency check) and enqueues the initial ready nodes as real
+    /// mailbox messages; subsequent nodes advance automatically as their
+    /// predecessors complete (driven from `enqueue_dag_nodes` after each batch
+    /// terminal). See `work_coordinator::dag` for the schema and
+    /// `SlotWorkCoordinator::start_dag` for the scheduling implementation.
+    pub async fn start_workflow(&self, def: WorkflowDef) -> Result<String, DagError> {
+        let (run_id, ready) = self.work_coordinator.start_dag(def)?;
+        self.dispatch_dag_ready(ready).await;
+        Ok(run_id)
+    }
+
+    /// Turn a set of DAG-ready nodes into real work: each node becomes a genuine
+    /// mailbox message (carrying its prompt) that is enqueued and reconciled,
+    /// exactly like a user-sent message. This is what makes the worker actually
+    /// claim and execute the node — `prepare_next_batch`'s Claim branch reads
+    /// the prompt from the real mailbox unread set, so a synthetic (message-less)
+    /// intent would never run. Backfills the run's node→intent map on success.
+    pub(crate) async fn dispatch_dag_ready(&self, nodes: Vec<super::work_coordinator::DagReadyNode>) {
+        for node in nodes {
+            let node_id = node.node_id.clone();
+            let run_id = node.run_id.clone();
+            match self.enqueue_dag_node(&node).await {
+                Ok(intent_id) => {
+                    self.work_coordinator.record_dag_mapping(&run_id, &node_id, &intent_id);
+                }
+                Err(error) => {
+                    warn!(
+                        team_id = %self.team.id,
+                        run_id,
+                        node_id,
+                        error = %error,
+                        "team DAG node enqueue failed; will retry on next terminal"
+                    );
+                    self.work_coordinator.unmark_dispatched(&run_id, &node_id);
+                }
+            }
+        }
+    }
+
+    async fn enqueue_dag_node(&self, node: &super::work_coordinator::DagReadyNode) -> Result<String, TeamError> {
+        let agent = self.scheduler.get_agent(&node.slot_id).await?;
+        self.ensure_member_runtime_lazy(&node.slot_id, false).await?;
+        self.publish_runtime_constraint(&node.slot_id).await?;
+        let lease = self.work_coordinator.acquire_enqueue(EnqueueRequest {
+            slot_id: node.slot_id.clone(),
+            role: target_role_for(agent.role),
+            source: WorkSource::UserMessage,
+            binding: CausalBinding::UserVisible,
+        })?;
+        let message = match self
+            .mailbox
+            .write_with_files(
+                &self.team.id,
+                &node.slot_id,
+                "user",
+                MailboxMessageType::Message,
+                &node.prompt,
+                None,
+                None,
+            )
+            .await
+        {
+            Ok(message) => message,
+            Err(error) => {
+                self.work_coordinator.abort_enqueue(&lease, "dag_mailbox_write_failed");
+                return Err(error);
+            }
+        };
+        let commit = self.commit_persisted_enqueue(&lease, message.id.clone()).await?;
+        self.event_loops.notify(&node.slot_id);
+        Ok(commit.intent_id)
+    }
+
     pub fn mcp_stdio_config(&self, slot_id: &str) -> TeamMcpStdioConfig {
         TeamMcpStdioConfig {
             team_id: self.team.id.clone(),
@@ -309,6 +399,22 @@ impl TeamSession {
             slot_id: slot_id.to_owned(),
             binary_path: self.backend_binary_path.to_string_lossy().into_owned(),
         }
+    }
+
+    /// Build the wiki MCP stdio config so each team agent can read the local
+    /// knowledge base. The wiki stdio bridge opens the server's own SQLite
+    /// database directly (no TCP forwarding), so only the binary path and the
+    /// DB file path are needed. Returns `None` when the data directory is not
+    /// configured (e.g. unit tests that don't exercise the wiki path).
+    pub fn wiki_mcp_stdio_config(&self) -> Option<WikiMcpStdioConfig> {
+        let db_path = self.data_dir.join("dodiddoneui-backend.db");
+        if !db_path.exists() {
+            return None;
+        }
+        Some(WikiMcpStdioConfig {
+            binary_path: self.backend_binary_path.to_string_lossy().into_owned(),
+            db_path: db_path.to_string_lossy().into_owned(),
+        })
     }
 
     /// Returns the stdio server spec that `TeamSessionService::ensure_session`
@@ -1643,12 +1749,13 @@ impl TeamSession {
         service: &TeamSessionService,
         agent: &TeamAgent,
         mcp_stdio_cfg: crate::mcp::TeamMcpStdioConfig,
+        wiki_mcp_stdio_cfg: Option<roseui_api_types::WikiMcpStdioConfig>,
         user_id: &str,
         task_manager: &Arc<dyn IWorkerTaskManager>,
     ) -> Result<(), TeamError> {
         service
             .provisioner()
-            .attach_agent_process(user_id, agent, mcp_stdio_cfg, task_manager)
+            .attach_agent_process(user_id, agent, mcp_stdio_cfg, wiki_mcp_stdio_cfg, task_manager)
             .await
     }
 
@@ -1760,6 +1867,7 @@ pub(crate) async fn attach_member_runtime(
         &service,
         &agent,
         session.mcp_stdio_config(&agent.slot_id),
+        session.wiki_mcp_stdio_config(),
         &user_id,
         &task_manager,
     )
@@ -2142,6 +2250,10 @@ mod tests {
         Arc::new(PathBuf::from("/tmp/dodiddoneui-test"))
     }
 
+    fn data_dir() -> Arc<PathBuf> {
+        Arc::new(PathBuf::from("/tmp"))
+    }
+
     /// In-memory stub for [`IWorkerTaskManager`]. Only `get_task` is
     /// exercised by D7b; the other methods are unreachable in these tests
     /// and panic to surface drift early.
@@ -2268,6 +2380,7 @@ mod tests {
             repo,
             broadcaster,
             backend_path(),
+            data_dir(),
             empty_task_manager(),
             noop_turn_port(),
             noop_cancellation_port(),
@@ -2344,6 +2457,51 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn wiki_mcp_stdio_config_requires_existing_db() {
+        let session = start_session().await;
+        // `start_session` uses data_dir = /tmp, where no backend DB exists,
+        // so the wiki bridge must not be advertised (the spawned helper would
+        // fail to open the database).
+        assert!(
+            session.wiki_mcp_stdio_config().is_none(),
+            "wiki MCP should be None when the DB file is absent"
+        );
+        session.stop();
+    }
+
+    #[tokio::test]
+    async fn wiki_mcp_stdio_config_builds_when_db_present() {
+        let tmp = std::env::temp_dir().join(format!("roseui-wiki-test-{}", std::process::id()));
+        std::fs::create_dir_all(&tmp).unwrap();
+        let db = tmp.join("dodiddoneui-backend.db");
+        std::fs::write(&db, b"sqlite").unwrap();
+
+        let repo: Arc<dyn ITeamRepository> = Arc::new(MockTeamRepo::new());
+        let broadcaster: Arc<dyn EventBroadcaster> = Arc::new(NullBroadcaster);
+        let session = TeamSession::start(
+            make_team(),
+            repo,
+            broadcaster,
+            backend_path(),
+            Arc::new(tmp.clone()),
+            empty_task_manager(),
+            noop_turn_port(),
+            noop_cancellation_port(),
+            noop_projection_store(),
+            "user-test".into(),
+            Weak::<TeamSessionService>::new(),
+        )
+        .await
+        .unwrap();
+
+        let wiki = session.wiki_mcp_stdio_config().expect("wiki MCP config");
+        assert_eq!(wiki.binary_path, "/tmp/dodiddoneui-test");
+        assert_eq!(wiki.db_path, db.to_string_lossy());
+        let _ = std::fs::remove_dir_all(&tmp);
+        session.stop();
+    }
+
+    #[tokio::test]
     async fn stdio_spec_uses_fixed_name_and_binary_path() {
         let session = start_session().await;
         let spec = session.stdio_spec("lead-1");
@@ -2364,6 +2522,7 @@ mod tests {
             repo_dyn,
             broadcaster,
             backend_path(),
+            data_dir(),
             empty_task_manager(),
             noop_turn_port(),
             noop_cancellation_port(),
@@ -2393,6 +2552,7 @@ mod tests {
             repo_dyn,
             broadcaster,
             backend_path(),
+            data_dir(),
             empty_task_manager(),
             noop_turn_port(),
             noop_cancellation_port(),
@@ -2487,6 +2647,7 @@ mod tests {
             repo,
             broadcaster,
             backend_path(),
+            data_dir(),
             stub_dyn,
             noop_turn_port(),
             noop_cancellation_port(),
@@ -2520,6 +2681,7 @@ mod tests {
             repo,
             broadcaster,
             backend_path(),
+            data_dir(),
             stub_dyn,
             noop_turn_port(),
             noop_cancellation_port(),
@@ -2759,6 +2921,7 @@ mod tests {
             repo_dyn,
             broadcaster,
             backend_path(),
+            data_dir(),
             task_manager,
             noop_turn_port(),
             noop_cancellation_port(),
@@ -2861,6 +3024,7 @@ mod tests {
             repo,
             broadcaster,
             backend_path(),
+            data_dir(),
             empty_task_manager(),
             Arc::new(BlockingRunningTurnPort::new(started_tx, release_rx)),
             noop_cancellation_port(),
@@ -2911,6 +3075,7 @@ mod tests {
             repo_dyn,
             broadcaster,
             backend_path(),
+            data_dir(),
             empty_task_manager(),
             Arc::new(BlockingRunningTurnPort::new(started_tx, release_rx)),
             noop_cancellation_port(),
@@ -3126,6 +3291,7 @@ mod tests {
             repo,
             broadcaster,
             backend_path(),
+            data_dir(),
             empty_task_manager(),
             noop_turn_port(),
             noop_cancellation_port(),
@@ -3148,6 +3314,7 @@ mod tests {
             repo,
             broadcaster,
             backend_path(),
+            data_dir(),
             empty_task_manager(),
             noop_turn_port(),
             noop_cancellation_port(),

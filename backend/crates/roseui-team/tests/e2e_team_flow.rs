@@ -596,6 +596,10 @@ fn backend_path() -> Arc<PathBuf> {
     Arc::new(PathBuf::from("/tmp/dodiddoneui-e2e-test"))
 }
 
+fn data_dir() -> Arc<PathBuf> {
+    Arc::new(PathBuf::from("/tmp"))
+}
+
 /// Two-agent team definition: one Lead + one Worker.
 fn two_agents() -> Vec<TeamAgent> {
     vec![
@@ -710,6 +714,7 @@ async fn setup_session_with_turn_recorder_inner(
         repo_dyn,
         broadcaster,
         backend_path(),
+        data_dir(),
         task_manager_dyn,
         turn_port,
         cancellation_port,
@@ -768,6 +773,7 @@ async fn setup_session_with_runtime_ports(
         repo_dyn,
         broadcaster_dyn,
         backend_path(),
+        data_dir(),
         task_manager_dyn,
         turn_port,
         cancellation_port,

@@ -107,6 +107,10 @@ pub struct TeamSessionService {
     /// (ELECTRON-3RN). No-op by default (see `NoopNativeSlashCommandPort`).
     slash_command_port: Arc<dyn NativeSlashCommandPort>,
     backend_binary_path: Arc<PathBuf>,
+    /// Data directory of the host server, forwarded into each `TeamSession`
+    /// so team agents can be wired to the local knowledge base via the wiki
+    /// MCP stdio bridge.
+    data_dir: Arc<PathBuf>,
     prompt_dump: TeamPromptDumpConfig,
     sessions: Arc<DashMap<String, SessionEntry>>,
     /// Per-team mutex serializing membership mutations with session startup so
@@ -143,6 +147,7 @@ impl TeamSessionService {
         turn_port: Arc<dyn AgentTurnExecutionPort>,
         cancellation_port: Arc<dyn AgentTurnCancellationPort>,
         backend_binary_path: Arc<PathBuf>,
+        data_dir: Arc<PathBuf>,
     ) -> Arc<Self> {
         Self::new_with_prompt_dump(
             repo,
@@ -159,6 +164,7 @@ impl TeamSessionService {
             cancellation_port,
             Arc::new(NoopNativeSlashCommandPort),
             backend_binary_path,
+            data_dir,
             TeamPromptDumpConfig::disabled(),
         )
     }
@@ -179,6 +185,7 @@ impl TeamSessionService {
         cancellation_port: Arc<dyn AgentTurnCancellationPort>,
         slash_command_port: Arc<dyn NativeSlashCommandPort>,
         backend_binary_path: Arc<PathBuf>,
+        data_dir: Arc<PathBuf>,
         prompt_dump: TeamPromptDumpConfig,
     ) -> Arc<Self> {
         Arc::new_cyclic(|weak| Self {
@@ -196,6 +203,7 @@ impl TeamSessionService {
             cancellation_port,
             slash_command_port,
             backend_binary_path,
+            data_dir,
             prompt_dump,
             sessions: Arc::new(DashMap::new()),
             add_agent_locks: Arc::new(DashMap::new()),
@@ -906,6 +914,7 @@ impl TeamSessionService {
             self.repo.clone(),
             self.broadcaster.clone(),
             self.backend_binary_path.clone(),
+            self.data_dir.clone(),
             self.task_manager.clone(),
             self.turn_port.clone(),
             self.cancellation_port.clone(),
@@ -1570,6 +1579,40 @@ impl TeamSessionService {
 
     pub fn get_session_scheduler(&self, team_id: &str) -> Option<Arc<crate::scheduler::TeammateManager>> {
         self.sessions.get(team_id).map(|e| e.session.scheduler().clone())
+    }
+
+    /// Start a workflow DAG on a team's active session. The session must already
+    /// be started (`ensure_session`); otherwise we return `TeamNotFound` and let
+    /// the caller start the session first. The workflow definition is validated
+    /// (cycle/dependency check) before any node is enqueued.
+    pub async fn start_workflow(
+        &self,
+        user_id: &str,
+        team_id: &str,
+        req: roseui_api_types::StartWorkflowRequest,
+    ) -> Result<String, TeamError> {
+        self.load_owned_team(user_id, team_id).await?;
+        let def = crate::work_coordinator::dag::WorkflowDef {
+            nodes: req
+                .nodes
+                .into_iter()
+                .map(|n| crate::work_coordinator::dag::WorkflowNode {
+                    id: n.id,
+                    slot_id: n.slot_id,
+                    prompt: n.prompt,
+                    depends_on: n.depends_on,
+                })
+                .collect(),
+        };
+        let session = self
+            .sessions
+            .get(team_id)
+            .map(|entry| Arc::clone(&entry.session))
+            .ok_or_else(|| TeamError::TeamNotFound(team_id.into()))?;
+        session
+            .start_workflow(def)
+            .await
+            .map_err(|e| TeamError::InvalidRequest(format!("workflow rejected: {e:?}")))
     }
 
     pub async fn resolve_team_tool_context(

@@ -226,6 +226,28 @@ export type ITeamMessageEvent = {
   conversation_id: string;
 };
 
+/** A single node in a workflow DAG. Mirrors the backend `WorkflowNode`. */
+export type IWorkflowNode = {
+  /** Stable node id (frontend-generated, e.g. the slot_id). */
+  id: string;
+  /** Team slot the node runs on (which teammate executes this step). */
+  slot_id: string;
+  /** Optional prompt override for this step; falls back to the teammate's default if empty. */
+  prompt: string;
+  /** Node ids that must complete before this node starts. Empty = root node. */
+  depends_on: string[];
+};
+
+/** Body for `POST /api/teams/{id}/workflow`. */
+export type IStartWorkflowRequest = {
+  nodes: IWorkflowNode[];
+};
+
+/** Response for `POST /api/teams/{id}/workflow`. */
+export type IStartWorkflowResponse = {
+  run_id: string;
+};
+
 /** Team-level session availability status. */
 export type TeamSessionStatus = 'starting' | 'ready' | 'failed' | 'stopped';
 
