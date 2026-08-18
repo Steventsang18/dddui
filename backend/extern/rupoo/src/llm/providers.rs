@@ -9,11 +9,28 @@ use crate::llm::LlmConfig;
 // Magic number constants
 const DEFAULT_MAX_TURNS: usize = 50;
 
+/// Merge the engine's built-in tools with external stdio MCP tools so the
+/// model sees the wiki/team tools in its tool list.
+fn merge_tools(
+    jail_root: Option<&std::path::Path>,
+    extra_tools: &[crate::mcp::McpToolDyn],
+) -> Vec<Box<dyn rig::tool::ToolDyn>> {
+    let mut tools = crate::rig_tools::build_boxed_tools(jail_root.map(|p| p.to_path_buf()));
+    tools.extend(
+        extra_tools
+            .iter()
+            .cloned()
+            .map(|t| Box::new(t) as Box<dyn rig::tool::ToolDyn>),
+    );
+    tools
+}
+
 pub fn build_anthropic_agent(
     config: &LlmConfig,
     preamble: &str,
     jail_root: Option<&std::path::Path>,
     http_client: &Arc<reqwest::Client>,
+    extra_tools: &[crate::mcp::McpToolDyn],
 ) -> AgentResult<rig::agent::Agent<rig::providers::anthropic::completion::CompletionModel>> {
     use rig::agent::AgentBuilder;
 
@@ -36,9 +53,7 @@ pub fn build_anthropic_agent(
         .temperature(config.temperature)
         .max_tokens(config.max_tokens as u64)
         .default_max_turns(DEFAULT_MAX_TURNS)
-        .tools(crate::rig_tools::build_boxed_tools(
-            jail_root.map(|p| p.to_path_buf()),
-        ));
+        .tools(merge_tools(jail_root, extra_tools));
 
     Ok(builder.build())
 }
@@ -48,6 +63,7 @@ pub fn build_openai_agent(
     preamble: &str,
     jail_root: Option<&std::path::Path>,
     http_client: &Arc<reqwest::Client>,
+    extra_tools: &[crate::mcp::McpToolDyn],
 ) -> AgentResult<rig::agent::Agent<rig::providers::openai::completion::CompletionModel>> {
     use rig::agent::AgentBuilder;
 
@@ -79,9 +95,7 @@ pub fn build_openai_agent(
         .temperature(config.temperature)
         .max_tokens(config.max_tokens as u64)
         .default_max_turns(DEFAULT_MAX_TURNS)
-        .tools(crate::rig_tools::build_boxed_tools(
-            jail_root.map(|p| p.to_path_buf()),
-        ));
+        .tools(merge_tools(jail_root, extra_tools));
 
     // Disable thinking mode for custom base_url (e.g. DeepSeek)
     if config.base_url.is_some() {
@@ -98,6 +112,7 @@ pub fn build_deepseek_agent(
     preamble: &str,
     jail_root: Option<&std::path::Path>,
     http_client: &Arc<reqwest::Client>,
+    extra_tools: &[crate::mcp::McpToolDyn],
 ) -> AgentResult<rig::agent::Agent<rig::providers::openai::completion::CompletionModel>> {
     use rig::agent::AgentBuilder;
 
@@ -127,9 +142,7 @@ pub fn build_deepseek_agent(
         .temperature(config.temperature)
         .max_tokens(config.max_tokens as u64)
         .default_max_turns(DEFAULT_MAX_TURNS)
-        .tools(crate::rig_tools::build_boxed_tools(
-            jail_root.map(|p| p.to_path_buf()),
-        ))
+        .tools(merge_tools(jail_root, extra_tools))
         // DeepSeek: disable thinking mode to avoid reasoning_content issues
         .additional_params(serde_json::json!({
             "thinking": {"type": "disabled"}
@@ -143,6 +156,7 @@ pub fn build_ollama_agent(
     preamble: &str,
     jail_root: Option<&std::path::Path>,
     http_client: &Arc<reqwest::Client>,
+    extra_tools: &[crate::mcp::McpToolDyn],
 ) -> AgentResult<rig::agent::Agent<rig::providers::ollama::CompletionModel>> {
     use rig::agent::AgentBuilder;
 
@@ -163,9 +177,7 @@ pub fn build_ollama_agent(
         .temperature(config.temperature)
         .max_tokens(config.max_tokens as u64)
         .default_max_turns(DEFAULT_MAX_TURNS)
-        .tools(crate::rig_tools::build_boxed_tools(
-            jail_root.map(|p| p.to_path_buf()),
-        ));
+        .tools(merge_tools(jail_root, extra_tools));
 
     Ok(builder.build())
 }
@@ -175,6 +187,7 @@ pub fn build_gemini_agent(
     preamble: &str,
     jail_root: Option<&std::path::Path>,
     http_client: &Arc<reqwest::Client>,
+    extra_tools: &[crate::mcp::McpToolDyn],
 ) -> AgentResult<rig::agent::Agent<rig::providers::gemini::CompletionModel>> {
     use rig::agent::AgentBuilder;
 
@@ -195,9 +208,7 @@ pub fn build_gemini_agent(
         .temperature(config.temperature)
         .max_tokens(config.max_tokens as u64)
         .default_max_turns(DEFAULT_MAX_TURNS)
-        .tools(crate::rig_tools::build_boxed_tools(
-            jail_root.map(|p| p.to_path_buf()),
-        ));
+        .tools(merge_tools(jail_root, extra_tools));
 
     Ok(builder.build())
 }
@@ -207,15 +218,14 @@ fn finish_streaming_agent<M: rig::completion::CompletionModel>(
     config: &LlmConfig,
     jail_root: Option<&std::path::Path>,
     _safe_mode: bool,
+    extra_tools: &[crate::mcp::McpToolDyn],
 ) -> AgentResult<rig::agent::Agent<M>> {
     let builder = builder
         .preamble(preamble)
         .temperature(config.temperature)
         .max_tokens(config.max_tokens as u64)
         .default_max_turns(DEFAULT_MAX_TURNS)
-        .tools(crate::rig_tools::build_boxed_tools(
-            jail_root.map(|p| p.to_path_buf()),
-        ));
+        .tools(merge_tools(jail_root, extra_tools));
 
     Ok(builder.build())
 }
@@ -227,6 +237,7 @@ pub fn build_anthropic_agent_streaming(
     jail_root: Option<&std::path::Path>,
     safe_mode: bool,
     http_client: &Arc<reqwest::Client>,
+    extra_tools: &[crate::mcp::McpToolDyn],
 ) -> AgentResult<rig::agent::Agent<rig::providers::anthropic::completion::CompletionModel>> {
     use rig::agent::AgentBuilder;
 
@@ -253,6 +264,7 @@ pub fn build_anthropic_agent_streaming(
         config,
         jail_root,
         safe_mode,
+        extra_tools,
     )
 }
 
@@ -263,6 +275,7 @@ pub fn build_openai_agent_streaming(
     jail_root: Option<&std::path::Path>,
     safe_mode: bool,
     http_client: &Arc<reqwest::Client>,
+    extra_tools: &[crate::mcp::McpToolDyn],
 ) -> AgentResult<rig::agent::Agent<rig::providers::openai::completion::CompletionModel>> {
     use rig::agent::AgentBuilder;
 
@@ -302,7 +315,7 @@ pub fn build_openai_agent_streaming(
         AgentBuilder::new(model)
     };
 
-    finish_streaming_agent(builder, preamble, config, jail_root, safe_mode)
+    finish_streaming_agent(builder, preamble, config, jail_root, safe_mode, extra_tools)
 }
 
 /// Streaming agent for DeepSeek with safe_mode.
@@ -313,6 +326,7 @@ pub fn build_deepseek_agent_streaming(
     jail_root: Option<&std::path::Path>,
     safe_mode: bool,
     http_client: &Arc<reqwest::Client>,
+    extra_tools: &[crate::mcp::McpToolDyn],
 ) -> AgentResult<rig::agent::Agent<rig::providers::openai::completion::CompletionModel>> {
     use rig::agent::AgentBuilder;
 
@@ -342,7 +356,7 @@ pub fn build_deepseek_agent_streaming(
         "thinking": {"type": "disabled"}
     }));
 
-    finish_streaming_agent(builder, preamble, config, jail_root, safe_mode)
+    finish_streaming_agent(builder, preamble, config, jail_root, safe_mode, extra_tools)
 }
 
 /// Streaming agent for Gemini with safe_mode.
@@ -352,6 +366,7 @@ pub fn build_gemini_agent_streaming(
     jail_root: Option<&std::path::Path>,
     safe_mode: bool,
     http_client: &Arc<reqwest::Client>,
+    extra_tools: &[crate::mcp::McpToolDyn],
 ) -> AgentResult<rig::agent::Agent<rig::providers::gemini::CompletionModel>> {
     use rig::agent::AgentBuilder;
 
@@ -373,6 +388,7 @@ pub fn build_gemini_agent_streaming(
         config,
         jail_root,
         safe_mode,
+        extra_tools,
     )
 }
 
@@ -383,6 +399,7 @@ pub fn build_ollama_agent_streaming(
     jail_root: Option<&std::path::Path>,
     safe_mode: bool,
     http_client: &Arc<reqwest::Client>,
+    extra_tools: &[crate::mcp::McpToolDyn],
 ) -> AgentResult<rig::agent::Agent<rig::providers::ollama::CompletionModel>> {
     use rig::agent::AgentBuilder;
 
@@ -404,6 +421,7 @@ pub fn build_ollama_agent_streaming(
         config,
         jail_root,
         safe_mode,
+        extra_tools,
     )
 }
 

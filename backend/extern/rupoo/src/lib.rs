@@ -25,6 +25,7 @@ pub mod industry_template;
 pub mod llm;
 pub mod loop_engine;
 pub mod mcp;
+pub mod mcp_client;
 pub mod mcp_server;
 pub mod memory;
 pub mod memory_cache;

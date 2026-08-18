@@ -58,12 +58,52 @@ pub struct RupooAgentManager {
     approval_rx: Mutex<Option<mpsc::UnboundedReceiver<rupoo::approval::ApprovalRequest>>>,
     /// Handle of the long-lived approval drain task, started once per manager.
     approval_drain: Mutex<Option<tokio::task::JoinHandle<()>>>,
+    /// Max agentic tool-call turns per user request. Mirrors rupoo's own
+    /// `DEFAULT_MAX_TURNS = 50` so complex multi-step tasks don't hit the
+    /// `MaxTurnError` prematurely. Resolved from `config.max_turns` (which the
+    /// upstream `AionrsBuildExtra.max_turns` override can raise), falling back to
+    /// 50 when unset. This is the *loop* cap fed into `agent_chat` /
+    /// `multi_turn`, intentionally distinct from the `ConversationHistory`
+    /// retention window (also sized from `config.max_turns`).
+    max_turns: usize,
+    /// Model context window (tokens) used as the denominator of the UI
+    /// context-usage ring. Resolved once from the model label — NOT the
+    /// engine's internal `TokenBudget` (a 4096-token prompt-assembly budget
+    /// that made every conversation look nearly full).
+    context_window: u64,
+}
+
+/// Best-effort lookup of a model's real context-window size (tokens) from its
+/// label, mirroring rupoo's own CLI table. The engine's `TokenBudget` (4096)
+/// is only a prompt-assembly budget, so the UI ring must use the model window
+/// as its denominator. Unknown labels fall back to the aionrs compact default
+/// (200k) — a conservative, never-red under-estimate of the real window.
+fn model_context_window(label: &str) -> Option<u64> {
+    let l = label.to_ascii_lowercase();
+    const TABLE: &[(&str, u64)] = &[
+        ("claude", 200_000),
+        ("gpt-4o", 128_000),
+        ("gpt-4", 128_000),
+        ("o1", 200_000),
+        ("gpt-3.5", 16_385),
+        ("gemini", 1_000_000),
+        ("deepseek", 64_000),
+        ("qwen", 32_768),
+        ("llama", 8_192),
+        ("mistral", 32_000),
+        ("yi-", 200_000),
+        ("glm", 128_000),
+    ];
+    TABLE
+        .iter()
+        .find(|(key, _)| l.contains(key))
+        .map(|(_, window)| *window)
 }
 
 impl RupooAgentManager {
     /// Build a manager bound to `conversation_id` / `workspace`, constructing
     /// the underlying engine from the resolved RoseUi provider configuration.
-    pub fn new(
+    pub async fn new(
         conversation_id: String,
         workspace: String,
         config: AionrsResolvedConfig,
@@ -98,37 +138,45 @@ impl RupooAgentManager {
         // embedded SafetyContext) from the *resolved* SafetySection + AgentProfile.
         // This makes template policies actually bite: command jail, approval
         // policy, and tool allow/exclude scoping all flow into the engine.
-        let (tool_executor, safety, approval_tool_names): (
-            Arc<dyn ToolExecutor>,
-            rupoo::safety::SafetyContext,
-            std::collections::HashSet<String>,
-        ) = if let (Some(section), Some(profile)) =
-            (config.industry_safety.as_ref(), config.industry_profile.as_ref())
-        {
-            let exec = rupoo::mcp::McpToolExecutor::with_safety_section(
-                section,
-                Some(profile),
-                Some(approval_gate.clone()),
-            );
-            let safety = exec.safety().clone();
-            let names = safety.approval_required_tools();
-            (Arc::new(exec), safety, names)
-        } else {
-            let safety = rupoo::safety::SafetyContext::default();
-            let names = safety.approval_required_tools();
-            let exec = Arc::new(rupoo::mcp::McpToolExecutor::with_safety_and_approval(
-                safety.clone(),
-                approval_gate.clone(),
-            ));
-            (exec, safety, names)
-        };
+        let (executor, safety): (rupoo::mcp::McpToolExecutor, rupoo::safety::SafetyContext) =
+            if let (Some(section), Some(profile)) =
+                (config.industry_safety.as_ref(), config.industry_profile.as_ref())
+            {
+                let exec = rupoo::mcp::McpToolExecutor::with_safety_section(
+                    section,
+                    Some(profile),
+                    Some(approval_gate.clone()),
+                );
+                let safety = exec.safety().clone();
+                (exec, safety)
+            } else {
+                let safety = rupoo::safety::SafetyContext::default();
+                let exec = rupoo::mcp::McpToolExecutor::with_safety_and_approval(
+                    safety.clone(),
+                    approval_gate.clone(),
+                );
+                (exec, safety)
+            };
+
+        // ── roseui: consume resolved extra_mcp_servers (wiki/team stdio MCP) ──
+        // Connect each stdio server via rupoo's built-in MCP client and register
+        // its tools under the standard `mcp__<server>__<tool>` wire naming so the
+        // agent can actually call them. Non-stdio transports are skipped.
+        let extra_tools = register_external_mcp_servers(&executor, &config.extra_mcp_servers).await;
+
+        let approval_tool_names = safety.approval_required_tools();
+        let tool_executor: Arc<dyn ToolExecutor> = Arc::new(executor);
 
         // ── Engine assembly ──
         let agent = rupoo::agent::Agent::with_safety(repo, tool_executor, safety);
-        let gateway = rupoo::llm::LlmGateway::with_jail(llm_config, std::path::PathBuf::from(&workspace));
+        let gateway = rupoo::llm::LlmGateway::with_jail(
+            llm_config,
+            std::path::PathBuf::from(&workspace),
+        )
+        .with_extra_tools(extra_tools);
         let agent = Arc::new(agent.with_llm(gateway));
 
-        let history = rupoo::llm::ConversationHistory::new(config.max_turns.unwrap_or(20))
+        let history = rupoo::llm::ConversationHistory::new(config.max_turns.unwrap_or(50))
             .with_token_budget(60_000);
 
         let translator = EventTranslator::new().with_approval_tools(approval_tool_names.clone());
@@ -148,6 +196,8 @@ impl RupooAgentManager {
             confirmations: Arc::new(RwLock::new(Vec::new())),
             approval_rx: Mutex::new(Some(approval_rx)),
             approval_drain: Mutex::new(None),
+            max_turns: config.max_turns.unwrap_or(50),
+            context_window: model_context_window(&config.model).unwrap_or(200_000),
         })
     }
 
@@ -156,6 +206,77 @@ impl RupooAgentManager {
         *self.last_activity.lock().unwrap() = now_ms();
         self.event_tx.send(event).unwrap_or(0)
     }
+}
+
+/// Connect external stdio MCP servers declared on the resolved config and
+/// register their tools into the engine executor under the standard
+/// `mcp__<server>__<tool>` wire naming. Non-stdio transports (SSE/HTTP) are
+/// skipped with a warning — rupoo's MCP client only drives stdio subprocesses.
+async fn register_external_mcp_servers(
+    executor: &rupoo::mcp::McpToolExecutor,
+    servers: &std::collections::HashMap<String, aion_config::config::McpServerConfig>,
+) -> Vec<rupoo::mcp::McpToolDyn> {
+    if servers.is_empty() {
+        return Vec::new();
+    }
+
+    let mut stdio: std::collections::HashMap<String, rupoo::config::McpServerConfig> =
+        std::collections::HashMap::new();
+    for (name, cfg) in servers {
+        match (&cfg.transport, &cfg.command) {
+            (aion_config::config::TransportType::Stdio, Some(command)) => {
+                stdio.insert(
+                    name.clone(),
+                    rupoo::config::McpServerConfig {
+                        command: command.clone(),
+                        args: cfg.args.clone().unwrap_or_default(),
+                        env: cfg.env.clone().unwrap_or_default(),
+                    },
+                );
+            }
+            _ => {
+                tracing::warn!(
+                    server = %name,
+                    transport = ?cfg.transport,
+                    "skipping MCP server: only stdio transport is supported by the rupoo client"
+                );
+            }
+        }
+    }
+    if stdio.is_empty() {
+        return Vec::new();
+    }
+
+    let client = Arc::new(rupoo::mcp_client::McpClientManager::new());
+    let results = client.connect_all(&stdio).await;
+    let mut extra_tools: Vec<rupoo::mcp::McpToolDyn> = Vec::new();
+    for (name, result) in results {
+        match result {
+            Ok(tools) => {
+                tracing::info!(
+                    server = %name,
+                    tools = tools.len(),
+                    "external stdio MCP server connected"
+                );
+                executor
+                    .register_mcp_client_tools(client.clone(), &name, &tools)
+                    .await;
+                extra_tools.extend(
+                    tools.iter().map(|info| {
+                        rupoo::mcp::McpToolDyn::new(client.clone(), &name, info)
+                    }),
+                );
+            }
+            Err(error) => {
+                tracing::warn!(
+                    server = %name,
+                    error = %error,
+                    "failed to connect external stdio MCP server"
+                );
+            }
+        }
+    }
+    extra_tools
 }
 
 #[async_trait::async_trait]
@@ -204,7 +325,7 @@ impl IAgentTask for RupooAgentManager {
         let event_tx = self.event_tx.clone();
         let translator = Arc::clone(&self.translator);
         let user_message = data.content.clone();
-        let max_turns = 20;
+        let max_turns = self.max_turns;
         let safe_mode = true;
 
         // Drain approval notices from the engine concurrently with the turn.
@@ -265,10 +386,13 @@ impl IAgentTask for RupooAgentManager {
         // notice receiver). It is only aborted when the manager is dropped.
 
         match result {
-            Ok((response, _usage)) => {
+            Ok((response, usage)) => {
                 // Record assistant turn in history for next round.
                 self.history.lock().unwrap().push_assistant(&response);
-                self.emit(translate::EventTranslator::finish_event(Some(self.conversation_id.clone())));
+                self.emit(translate::EventTranslator::finish_event(
+                    Some(self.conversation_id.clone()),
+                    Some(usage),
+                ));
                 *self.started.lock().unwrap() = Some(ConversationStatus::Finished);
                 Ok(())
             }
@@ -327,6 +451,18 @@ impl RupooAgentManager {
             .read()
             .map(|c| c.clone())
             .unwrap_or_default()
+    }
+
+    /// Live context-window occupancy for the #14 consumption ring. Reads the
+    /// engine's unified `ConversationContext` directly (no wire round-trip):
+    /// `estimated_context_tokens()` is the assembled prompt+history token count,
+    /// while the capacity is the *model* context window (resolved from the
+    /// model label at build time) — NOT the engine's internal `TokenBudget`
+    /// (a 4096-token prompt-assembly budget). Returns `(used, size)`.
+    pub fn get_usage(&self) -> (u64, u64) {
+        let ctx = self.agent.context();
+        let used = ctx.estimated_context_tokens() as u64;
+        (used, self.context_window)
     }
 
     pub fn confirm(

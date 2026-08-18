@@ -503,10 +503,16 @@ impl StreamPersistenceAdapter {
         };
         let content = serde_json::to_string(data).unwrap_or_default();
 
+        // The engine's call_id (e.g. `rupoo-tool-1`) is only unique per session,
+        // while the messages table keys on a globally unique `id`. Scope the
+        // storage id by conversation so tool calls from different sessions never
+        // collide on the primary key. The same (conversation, call_id) pair still
+        // maps to the same row, so Running -> Completed updates in place.
+        let storage_id = format!("{}-{}", self.conversation_id, data.call_id);
         let row = MessageRow {
-            id: data.call_id.clone(),
+            id: storage_id.clone(),
             conversation_id: self.conversation_id.clone(),
-            msg_id: Some(data.call_id.clone()),
+            msg_id: Some(storage_id),
             r#type: "tool_call".into(),
             content,
             position: Some("left".into()),

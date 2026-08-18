@@ -244,7 +244,7 @@ pub(super) async fn build(
     }
 
     // ── roseui: route default kernel through the built-in Rupoo engine ──
-    let agent = RupooAgentManager::new(ctx.conversation_id.clone(), ctx.workspace.clone(), config)?;
+    let agent = RupooAgentManager::new(ctx.conversation_id.clone(), ctx.workspace.clone(), config).await?;
     Ok(AgentInstance::Rupoo(Arc::new(agent)))
 }
 

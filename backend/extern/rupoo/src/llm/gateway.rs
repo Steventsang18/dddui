@@ -24,6 +24,9 @@ pub struct LlmGateway {
     /// Passed to all rig provider clients so a single connection pool
     /// is shared across all LLM requests.
     http_client: Arc<reqwest::Client>,
+    /// External stdio MCP tools (wiki/team) surfaced to the model's tool list
+    /// alongside the engine's built-ins.
+    extra_tools: Vec<crate::mcp::McpToolDyn>,
 }
 
 impl LlmGateway {
@@ -43,6 +46,7 @@ impl LlmGateway {
             jail_root,
             http_client: crate::http_client::HTTP_CLIENT.clone(),
             config,
+            extra_tools: Vec::new(),
         }
     }
 
@@ -58,6 +62,7 @@ impl LlmGateway {
             config,
             jail_root: Some(normalized),
             http_client: crate::http_client::HTTP_CLIENT.clone(),
+            extra_tools: Vec::new(),
         }
     }
 
@@ -78,7 +83,15 @@ impl LlmGateway {
             config,
             jail_root,
             http_client,
+            extra_tools: Vec::new(),
         }
+    }
+
+    /// Register external stdio MCP tools (wiki/team) so the model sees them in
+    /// its tool list alongside the engine's built-ins.
+    pub fn with_extra_tools(mut self, tools: Vec<crate::mcp::McpToolDyn>) -> Self {
+        self.extra_tools = tools;
+        self
     }
 
     /// Normalize a path to an absolute, canonical path.
@@ -170,6 +183,7 @@ impl LlmGateway {
                         preamble,
                         jail_root.as_deref(),
                         &self.http_client,
+                        &self.extra_tools,
                     )?;
                     let response = agent
                         .prompt(&prompt)
@@ -188,6 +202,7 @@ impl LlmGateway {
                         preamble,
                         jail_root.as_deref(),
                         &self.http_client,
+                        &self.extra_tools,
                     )?;
                     let response = agent
                         .prompt(&prompt)
@@ -206,6 +221,7 @@ impl LlmGateway {
                         preamble,
                         jail_root.as_deref(),
                         &self.http_client,
+                        &self.extra_tools,
                     )?;
                     let response = agent
                         .prompt(&prompt)
@@ -224,6 +240,7 @@ impl LlmGateway {
                         preamble,
                         jail_root.as_deref(),
                         &self.http_client,
+                        &self.extra_tools,
                     )?;
                     let response = agent
                         .prompt(&prompt)
@@ -242,6 +259,7 @@ impl LlmGateway {
                         preamble,
                         jail_root.as_deref(),
                         &self.http_client,
+                        &self.extra_tools,
                     )?;
                     let response = agent
                         .prompt(&prompt)
@@ -379,6 +397,7 @@ impl LlmGateway {
                     self.jail_root.as_deref(),
                     safe_mode,
                     &self.http_client,
+                    &self.extra_tools,
                 )?;
                 self.chat_stream_generic("Anthropic", agent, messages, max_turns, &mut on_event)
                     .await
@@ -390,6 +409,7 @@ impl LlmGateway {
                     self.jail_root.as_deref(),
                     safe_mode,
                     &self.http_client,
+                    &self.extra_tools,
                 )?;
                 self.chat_stream_generic("DeepSeek", agent, messages, max_turns, &mut on_event)
                     .await
@@ -401,6 +421,7 @@ impl LlmGateway {
                     self.jail_root.as_deref(),
                     safe_mode,
                     &self.http_client,
+                    &self.extra_tools,
                 )?;
                 self.chat_stream_generic("Gemini", agent, messages, max_turns, &mut on_event)
                     .await
@@ -412,6 +433,7 @@ impl LlmGateway {
                     self.jail_root.as_deref(),
                     safe_mode,
                     &self.http_client,
+                    &self.extra_tools,
                 )?;
                 self.chat_stream_generic("OpenAI", agent, messages, max_turns, &mut on_event)
                     .await
@@ -423,6 +445,7 @@ impl LlmGateway {
                     self.jail_root.as_deref(),
                     safe_mode,
                     &self.http_client,
+                    &self.extra_tools,
                 )?;
                 self.chat_stream_generic("Ollama", agent, messages, max_turns, &mut on_event)
                     .await
@@ -651,6 +674,7 @@ impl LlmGateway {
                     "",
                     jail_root.as_deref(),
                     &self.http_client,
+                    &self.extra_tools,
                 )?;
                 let response = agent
                     .prompt(&prompt_text)
@@ -669,6 +693,7 @@ impl LlmGateway {
                     "",
                     jail_root.as_deref(),
                     &self.http_client,
+                    &self.extra_tools,
                 )?;
                 let response = agent
                     .prompt(&prompt_text)
@@ -683,7 +708,13 @@ impl LlmGateway {
             }
             LlmProvider::Gemini => {
                 let agent =
-                    build_gemini_agent(&self.config, "", jail_root.as_deref(), &self.http_client)?;
+                    build_gemini_agent(
+                        &self.config,
+                        "",
+                        jail_root.as_deref(),
+                        &self.http_client,
+                        &self.extra_tools,
+                    )?;
                 let response = agent
                     .prompt(&prompt_text)
                     .extended_details()
@@ -697,7 +728,13 @@ impl LlmGateway {
             }
             LlmProvider::OpenAI => {
                 let agent =
-                    build_openai_agent(&self.config, "", jail_root.as_deref(), &self.http_client)?;
+                    build_openai_agent(
+                        &self.config,
+                        "",
+                        jail_root.as_deref(),
+                        &self.http_client,
+                        &self.extra_tools,
+                    )?;
                 let response = agent
                     .prompt(&prompt_text)
                     .extended_details()
@@ -711,7 +748,13 @@ impl LlmGateway {
             }
             LlmProvider::Ollama => {
                 let agent =
-                    build_ollama_agent(&self.config, "", jail_root.as_deref(), &self.http_client)?;
+                    build_ollama_agent(
+                        &self.config,
+                        "",
+                        jail_root.as_deref(),
+                        &self.http_client,
+                        &self.extra_tools,
+                    )?;
                 let response = agent
                     .prompt(&prompt_text)
                     .extended_details()

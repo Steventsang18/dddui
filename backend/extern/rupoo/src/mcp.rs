@@ -124,6 +124,150 @@ where
 }
 
 // -----------------------------------------------------------------------------
+// External stdio MCP client bridge — forwards agent tool calls to a
+// subprocess MCP server through a shared `McpClientManager`.
+// -----------------------------------------------------------------------------
+
+/// Type-erased bridge that forwards a JSON tool call to an external stdio MCP
+/// server via a shared [`crate::mcp_client::McpClientManager`]. Tools are
+/// registered under the standard `mcp__<server>__<tool>` wire naming so the
+/// agent sees exactly the contract its MCP server declares.
+struct McpClientBridge {
+    client: Arc<crate::mcp_client::McpClientManager>,
+    server: String,
+    tool: String,
+}
+
+#[async_trait]
+impl BoxedTool for McpClientBridge {
+    async fn execute_json(&self, params: serde_json::Value) -> Result<serde_json::Value, String> {
+        let result = self
+            .client
+            .call_tool(&self.server, &self.tool, params)
+            .await
+            .map_err(|e| {
+                format!(
+                    "mcp server '{}' tool '{}' failed: {}",
+                    self.server, self.tool, e
+                )
+            })?;
+
+        // MCP `tools/call` returns a CallToolResult: { content: [...], isError: bool }.
+        let is_error = result
+            .get("isError")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let text = flatten_call_tool_content(&result);
+        if is_error {
+            Ok(serde_json::json!({ "success": false, "error": text }))
+        } else {
+            Ok(serde_json::json!({ "content": text }))
+        }
+    }
+}
+
+/// Rig [`ToolDyn`] adapter for an external stdio MCP tool. Instances are what
+/// the LLM actually sees in its tool list (unlike the executor-side registry
+/// which only routes execution). Each instance forwards calls to the shared
+/// [`crate::mcp_client::McpClientManager`] over the subprocess channel, so the
+/// agent can invoke wiki/team servers through the standard rig tool loop.
+#[derive(Clone)]
+pub struct McpToolDyn {
+    client: Arc<crate::mcp_client::McpClientManager>,
+    server: String,
+    tool: String,
+    wire_name: String,
+    description: String,
+    parameters: serde_json::Value,
+}
+
+impl McpToolDyn {
+    /// Build one rig tool from an MCP tool info under the standard
+    /// `mcp__<server>__<tool>` wire naming.
+    pub fn new(
+        client: Arc<crate::mcp_client::McpClientManager>,
+        server: &str,
+        info: &crate::mcp_client::McpToolInfo,
+    ) -> Self {
+        Self {
+            client,
+            server: server.to_string(),
+            tool: info.name.clone(),
+            wire_name: format!("mcp__{server}__{}", info.name),
+            description: info.description.clone().unwrap_or_default(),
+            parameters: info
+                .input_schema
+                .clone()
+                .unwrap_or_else(|| serde_json::json!({ "type": "object" })),
+        }
+    }
+}
+
+impl rig::tool::ToolDyn for McpToolDyn {
+    fn name(&self) -> String {
+        self.wire_name.clone()
+    }
+
+    fn definition(
+        &self,
+        _prompt: String,
+    ) -> rig::wasm_compat::WasmBoxedFuture<'_, rig::completion::ToolDefinition> {
+        Box::pin(std::future::ready(rig::completion::ToolDefinition {
+            name: self.wire_name.clone(),
+            description: self.description.clone(),
+            parameters: self.parameters.clone(),
+        }))
+    }
+
+    fn call(
+        &self,
+        args: String,
+    ) -> rig::wasm_compat::WasmBoxedFuture<'_, Result<String, rig::tool::ToolError>> {
+        let this = self.clone();
+        Box::pin(async move {
+            let params: serde_json::Value =
+                serde_json::from_str(&args).map_err(rig::tool::ToolError::JsonError)?;
+            let result = this.client.call_tool(&this.server, &this.tool, params).await.map_err(|e| {
+                rig::tool::ToolError::ToolCallError(Box::new(std::io::Error::other(format!(
+                    "mcp server '{}' tool '{}' failed: {}",
+                    this.server, this.tool, e
+                ))))
+            })?;
+
+            // MCP `tools/call` returns a CallToolResult: { content: [...], isError: bool }.
+            let is_error = result
+                .get("isError")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            let text = flatten_call_tool_content(&result);
+            let output = if is_error {
+                serde_json::json!({ "success": false, "error": text })
+            } else {
+                serde_json::json!({ "content": text })
+            };
+            serde_json::to_string(&output).map_err(rig::tool::ToolError::JsonError)
+        })
+    }
+}
+
+/// Flatten an MCP `CallToolResult.content` array (plus textual fallbacks) into
+/// a single string the engine's `extract_mcp_result` can surface.
+fn flatten_call_tool_content(result: &serde_json::Value) -> String {
+    if let Some(parts) = result.get("content").and_then(|v| v.as_array()) {
+        let texts: Vec<&str> = parts
+            .iter()
+            .filter_map(|part| part.get("text").and_then(|t| t.as_str()))
+            .collect();
+        if !texts.is_empty() {
+            return texts.join("\n");
+        }
+    } else if let Some(text) = result.get("text").and_then(|v| v.as_str()) {
+        return text.to_string();
+    }
+    serde_json::to_string_pretty(result).unwrap_or_else(|_| result.to_string())
+}
+
+// -----------------------------------------------------------------------------
 // McpToolExecutor — holds Box<dyn Tool> instances
 // -----------------------------------------------------------------------------
 
@@ -282,6 +426,39 @@ impl McpToolExecutor {
         reg.remove(name);
         let mut defs = self.definitions.write().await;
         defs.remove(name);
+    }
+
+    /// Register all tools discovered from an external stdio MCP server
+    /// (driven by a shared [`crate::mcp_client::McpClientManager`]) under the
+    /// standard `mcp__<server>__<tool>` wire naming. This is how DoDidDoneUi
+    /// surfaces wiki/team MCP servers to the agent without touching the engine
+    /// internals — tool names and schemas come straight from the server's
+    /// `tools/list` contract.
+    pub async fn register_mcp_client_tools(
+        &self,
+        client: Arc<crate::mcp_client::McpClientManager>,
+        server_name: &str,
+        tools: &[crate::mcp_client::McpToolInfo],
+    ) {
+        for info in tools {
+            let wire_name = format!("mcp__{server_name}__{}", info.name);
+            let bridge = Arc::new(McpClientBridge {
+                client: Arc::clone(&client),
+                server: server_name.to_string(),
+                tool: info.name.clone(),
+            });
+            let parameters = info
+                .input_schema
+                .clone()
+                .unwrap_or_else(|| serde_json::json!({ "type": "object" }));
+            let definition = rig::completion::ToolDefinition {
+                name: wire_name.clone(),
+                description: info.description.clone().unwrap_or_default(),
+                parameters,
+            };
+            self.registry.write().await.insert(wire_name.clone(), bridge);
+            self.definitions.write().await.insert(wire_name, definition);
+        }
     }
 }
 
