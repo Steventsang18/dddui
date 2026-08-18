@@ -323,7 +323,7 @@ export const useAionrsMessage = (
                 // holds the per-reply 上行/下行 token counts.
                 total_tokens: cumulativeTotal,
                 breakdown: {
-                  ...(tokenUsageRef.current?.breakdown ?? {}),
+                  ...(tokenUsageRef.current?.breakdown),
                   input_tokens: input,
                   output_tokens: output,
                 },
