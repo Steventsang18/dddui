@@ -5,7 +5,7 @@ use axum::http::{Request, StatusCode};
 use serde_json::json;
 use tower::ServiceExt;
 
-use common::{body_json, build_app_with_mock_agents, get_with_token, json_with_token, setup_and_login};
+use common::{body_json, build_app_with_mock_agents_for_config, get_with_token, json_with_token, setup_and_login, webui_config};
 
 fn create_body() -> serde_json::Value {
     json!({
@@ -40,7 +40,7 @@ async fn create_and_ensure_runtime_conversation(app: &mut axum::Router, token: &
 
 #[tokio::test]
 async fn legacy_config_options_get_route_is_removed() {
-    let (mut app, services) = build_app_with_mock_agents().await;
+    let (mut app, services) = build_app_with_mock_agents_for_config(webui_config()).await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let id = create_and_ensure_runtime_conversation(&mut app, &token, &csrf).await;
 
@@ -57,7 +57,7 @@ async fn legacy_config_options_get_route_is_removed() {
 
 #[tokio::test]
 async fn runtime_ensure_requires_auth() {
-    let (app, _services) = build_app_with_mock_agents().await;
+    let (app, _services) = build_app_with_mock_agents_for_config(webui_config()).await;
     let csrf = "csrf-test";
 
     let resp = app
@@ -80,7 +80,7 @@ async fn runtime_ensure_requires_auth() {
 
 #[tokio::test]
 async fn runtime_ensure_requires_csrf() {
-    let (mut app, services) = build_app_with_mock_agents().await;
+    let (mut app, services) = build_app_with_mock_agents_for_config(webui_config()).await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let id = create_conversation(&mut app, &token, &csrf).await;
 
@@ -99,7 +99,7 @@ async fn runtime_ensure_requires_csrf() {
 
 #[tokio::test]
 async fn legacy_warmup_route_is_removed() {
-    let (mut app, services) = build_app_with_mock_agents().await;
+    let (mut app, services) = build_app_with_mock_agents_for_config(webui_config()).await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let id = create_conversation(&mut app, &token, &csrf).await;
 
@@ -117,7 +117,7 @@ async fn legacy_warmup_route_is_removed() {
 
 #[tokio::test]
 async fn runtime_ensure_recovers_missing_agent_and_returns_config_snapshot() {
-    let (mut app, services) = build_app_with_mock_agents().await;
+    let (mut app, services) = build_app_with_mock_agents_for_config(webui_config()).await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let id = create_conversation(&mut app, &token, &csrf).await;
 
@@ -141,7 +141,7 @@ async fn runtime_ensure_recovers_missing_agent_and_returns_config_snapshot() {
 
 #[tokio::test]
 async fn runtime_ensure_uses_existing_agent_without_recovery() {
-    let (mut app, services) = build_app_with_mock_agents().await;
+    let (mut app, services) = build_app_with_mock_agents_for_config(webui_config()).await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let id = create_and_ensure_runtime_conversation(&mut app, &token, &csrf).await;
 
@@ -163,7 +163,7 @@ async fn runtime_ensure_uses_existing_agent_without_recovery() {
 
 #[tokio::test]
 async fn set_config_option_requires_csrf() {
-    let (mut app, services) = build_app_with_mock_agents().await;
+    let (mut app, services) = build_app_with_mock_agents_for_config(webui_config()).await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let id = create_and_ensure_runtime_conversation(&mut app, &token, &csrf).await;
 
@@ -185,7 +185,7 @@ async fn set_config_option_requires_csrf() {
 
 #[tokio::test]
 async fn set_config_option_returns_observed_confirmation() {
-    let (mut app, services) = build_app_with_mock_agents().await;
+    let (mut app, services) = build_app_with_mock_agents_for_config(webui_config()).await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let id = create_and_ensure_runtime_conversation(&mut app, &token, &csrf).await;
 
@@ -206,7 +206,7 @@ async fn set_config_option_returns_observed_confirmation() {
 
 #[tokio::test]
 async fn old_mode_and_model_routes_are_removed() {
-    let (mut app, services) = build_app_with_mock_agents().await;
+    let (mut app, services) = build_app_with_mock_agents_for_config(webui_config()).await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let id = create_and_ensure_runtime_conversation(&mut app, &token, &csrf).await;
 

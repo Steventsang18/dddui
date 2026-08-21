@@ -35,8 +35,8 @@ use agent_client_protocol::schema::v1::{
 use agent_client_protocol::{
     Agent, Client, ConnectionTo, Lines, Responder, UntypedMessage, on_receive_notification, on_receive_request,
 };
-use roseui_common::ErrorChain;
 use futures_util::{SinkExt, StreamExt, TryStreamExt};
+use roseui_common::ErrorChain;
 use tokio::process::{ChildStdin, ChildStdout};
 use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio_util::codec::{FramedRead, FramedWrite, LinesCodec};

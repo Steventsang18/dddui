@@ -20,6 +20,21 @@ export const isElectronDesktop = (): boolean => {
 };
 
 /**
+ * Check if running inside the Tauri desktop shell.
+ * 检测是否运行在 Tauri 桌面壳中
+ */
+export const isTauriDesktop = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return Boolean((window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__);
+};
+
+/**
+ * Any desktop shell: legacy Electron or Tauri.
+ * 任意桌面壳环境（Electron 或 Tauri）
+ */
+export const isDesktopShell = (): boolean => isElectronDesktop() || isTauriDesktop();
+
+/**
  * Check if running on macOS
  * 检测是否运行在 macOS
  */
@@ -49,14 +64,15 @@ function isAbsoluteAssetUrl(url: string): boolean {
 
 /**
  * Resolve a backend-served asset URL for the current environment.
- * In Electron, renderer pages are file:// based, so backend-relative paths
- * must be expanded against the backend HTTP origin.
+ * In desktop shells (Electron / Tauri), renderer pages are not same-origin
+ * with the backend, so backend-relative paths must be expanded against the
+ * backend HTTP origin.
  */
 export const resolveBackendAssetUrl = (url: string | undefined): string | undefined => {
   if (!url) return url;
   if (isAbsoluteAssetUrl(url) || /^data:/i.test(url)) return url;
   if (url.startsWith('/')) {
-    return isElectronDesktop() ? `${getBaseUrl()}${url}` : url;
+    return isDesktopShell() ? `${getBaseUrl()}${url}` : url;
   }
   return url;
 };
@@ -74,13 +90,27 @@ export const resolveExtensionAssetUrl = (url: string | undefined): string | unde
 };
 
 /**
+ * Quit the Tauri desktop app. The shell's RunEvent::Exit handler shuts the
+ * sidecar backend down cleanly, so we exit the whole app instead of POSTing
+ * /api/system/shutdown — the sidecar watchdog would treat that as a crash
+ * and restart the backend.
+ *
+ * 退出 Tauri 桌面应用（壳退出时会干净地停掉后端 sidecar）
+ */
+export const exitTauriApp = async (): Promise<void> => {
+  const internals = (window as unknown as {
+    __TAURI_INTERNALS__?: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> };
+  }).__TAURI_INTERNALS__;
+  await internals?.invoke('quit_app');
+};
+
+/**
  * Open external URL in the appropriate context
  * - Electron: uses shell.openExternal via IPC (opens on local machine)
+ * - Tauri: uses the opener plugin via IPC internals (opens on local machine)
  * - WebUI: uses window.open in client browser (opens on remote client)
  *
  * 在适当的环境中打开外部链接
- * - Electron: 通过 IPC 调用 shell.openExternal（在本地机器打开）
- * - WebUI: 使用 window.open 在客户端浏览器打开（在远程客户端打开）
  */
 export const openExternalUrl = async (url: string): Promise<void> => {
   if (!url) return;
@@ -88,7 +118,21 @@ export const openExternalUrl = async (url: string): Promise<void> => {
   if (isElectronDesktop()) {
     const { ipcBridge } = await import('@/common');
     await ipcBridge.shell.openExternal.invoke(url);
-  } else {
-    window.open(url, '_blank', 'noopener,noreferrer');
+    return;
   }
+
+  if (isTauriDesktop()) {
+    const internals = (window as unknown as {
+      __TAURI_INTERNALS__?: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> };
+    }).__TAURI_INTERNALS__;
+    try {
+      await internals?.invoke('plugin:opener|open_url', { path: url });
+    } catch (error) {
+      console.error('Failed to open external URL via Tauri:', error);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+    return;
+  }
+
+  window.open(url, '_blank', 'noopener,noreferrer');
 };

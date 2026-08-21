@@ -159,7 +159,7 @@ async fn build_app_with_extension_root(ext_root: &std::path::Path) -> (axum::Rou
         data_dir: data_dir.clone(),
         work_dir: data_dir,
         app_version: "1.0.0".to_string(),
-        ..Default::default()
+        ..common::webui_config()
     };
     let services = AppServices::from_config(db, &config).await.unwrap();
     let (states, _) = build_module_states(&services).await.expect("build module states");

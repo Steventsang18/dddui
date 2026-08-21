@@ -13,16 +13,16 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use crate::commands::error::{CliBoundaryCode, CliBoundaryError, missing_env};
-use roseui_wiki::{
-    CreateWikiPageRequest, IWikiRepository, IngestEngine, SqliteWikiRepository, UpdateWikiPageRequest,
-    WikiEdgeType, WikiPage,
-};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{CallToolResult, Content, ListToolsResult};
 use rmcp::{schemars, service::ServiceExt, tool, tool_router, transport};
+use roseui_wiki::{
+    CreateWikiPageRequest, IWikiRepository, IngestEngine, SqliteWikiRepository, UpdateWikiPageRequest, WikiEdgeType,
+    WikiPage,
+};
 use serde::Deserialize;
-use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::SqlitePool;
+use sqlx::sqlite::SqliteConnectOptions;
 
 const SUBCOMMAND: &str = "mcp-wiki-stdio";
 const ENV_DB_PATH: &str = "ROSEUI_WIKI_DB_PATH";
@@ -237,7 +237,14 @@ impl WikiStdioServer {
         description = "Produce a precise, copy-pasteable citation for a wiki page, optionally anchored to a heading or quoted passage. Returns a markdown link `[title](wiki:<page_id>#<anchor>)` or, in `plain` style, `title (source_ref)` using the page's `source_ref` field. Use this to embed verifiable references into Agent outputs and workflows."
     )]
     async fn cite(&self, Parameters(params): Parameters<WikiCiteParams>) -> CallToolResult {
-        match do_cite(&self.repo, &params.page_id_or_title, params.anchor.as_deref(), &params.style).await {
+        match do_cite(
+            &self.repo,
+            &params.page_id_or_title,
+            params.anchor.as_deref(),
+            &params.style,
+        )
+        .await
+        {
             Ok(text) => CallToolResult::success(vec![Content::text(text)]),
             Err(msg) => CallToolResult::error(vec![Content::text(msg)]),
         }
@@ -247,10 +254,7 @@ impl WikiStdioServer {
         name = "wiki_link_graph",
         description = "Return the typed association graph around a wiki page: outgoing and incoming edges with their edge type (cites/supersedes/conflicts/exemplifies/relates) and direction. Enables the Agent to follow reasoning chains (e.g. a case that `cites` a statute) instead of flat backlinks."
     )]
-    async fn link_graph(
-        &self,
-        Parameters(params): Parameters<WikiLinkGraphParams>,
-    ) -> CallToolResult {
+    async fn link_graph(&self, Parameters(params): Parameters<WikiLinkGraphParams>) -> CallToolResult {
         match do_link_graph(&self.repo, &params.page_id_or_title, params.edge_type.as_deref()).await {
             Ok(json) => CallToolResult::success(vec![Content::text(json)]),
             Err(msg) => CallToolResult::error(vec![Content::text(msg)]),
@@ -261,10 +265,7 @@ impl WikiStdioServer {
         name = "wiki_title_search",
         description = "Autocomplete wiki page titles matching a substring. Use before writing `[[Page Name]]` links so the Agent references existing pages by their exact title (case-insensitive substring match). Returns a JSON array of matching titles."
     )]
-    async fn title_search(
-        &self,
-        Parameters(params): Parameters<WikiTitleSearchParams>,
-    ) -> CallToolResult {
+    async fn title_search(&self, Parameters(params): Parameters<WikiTitleSearchParams>) -> CallToolResult {
         let limit = params.limit.clamp(1, 50);
         match do_title_search(&self.repo, &params.query, limit).await {
             Ok(json) => CallToolResult::success(vec![Content::text(json)]),
@@ -276,10 +277,7 @@ impl WikiStdioServer {
         name = "wiki_ingest",
         description = "Ingest a source document from the read-only `wiki/raw/` folder into wiki pages. The Agent MUST NOT pass file bytes or modify raw files; it only references an existing raw-relative path (e.g. \"contracts/2024-xx.pdf\"). Returns the produced summary page id and slice page ids. Idempotent by file checksum."
     )]
-    async fn ingest(
-        &self,
-        Parameters(params): Parameters<WikiIngestParams>,
-    ) -> CallToolResult {
+    async fn ingest(&self, Parameters(params): Parameters<WikiIngestParams>) -> CallToolResult {
         match do_ingest(&self.ingest, &params.raw_path).await {
             Ok(json) => CallToolResult::success(vec![Content::text(json)]),
             Err(msg) => CallToolResult::error(vec![Content::text(msg)]),
@@ -349,10 +347,7 @@ async fn do_write(
             .await
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "wiki page disappeared during update".to_string())?;
-        return Ok(format!(
-            "updated wiki page: {} ({})",
-            updated.title, updated.id
-        ));
+        return Ok(format!("updated wiki page: {} ({})", updated.title, updated.id));
     }
 
     // Create new page.
@@ -369,17 +364,11 @@ async fn do_write(
         })
         .await
         .map_err(|e| e.to_string())?;
-    Ok(format!(
-        "created wiki page: {} ({})",
-        created.title, created.id
-    ))
+    Ok(format!("created wiki page: {} ({})", created.title, created.id))
 }
 
 async fn do_search(repo: &SqliteWikiRepository, query: &str, limit: u32) -> Result<String, String> {
-    let pages = repo
-        .search(query, limit, None, None)
-        .await
-        .map_err(|e| e.to_string())?;
+    let pages = repo.search(query, limit, None, None).await.map_err(|e| e.to_string())?;
     if pages.is_empty() {
         return Ok("[]".to_string());
     }
@@ -387,11 +376,7 @@ async fn do_search(repo: &SqliteWikiRepository, query: &str, limit: u32) -> Resu
     let summaries: Vec<serde_json::Value> = pages
         .iter()
         .map(|p| {
-            let snippet: String = p
-                .content_md
-                .chars()
-                .take(120)
-                .collect();
+            let snippet: String = p.content_md.chars().take(120).collect();
             serde_json::json!({
                 "id": p.id,
                 "title": p.title,
@@ -404,10 +389,7 @@ async fn do_search(repo: &SqliteWikiRepository, query: &str, limit: u32) -> Resu
 }
 
 /// Resolve a page by id or title, falling back to title (case-insensitive).
-async fn resolve_page(
-    repo: &SqliteWikiRepository,
-    page_id_or_title: &str,
-) -> Result<WikiPage, String> {
+async fn resolve_page(repo: &SqliteWikiRepository, page_id_or_title: &str) -> Result<WikiPage, String> {
     if let Ok(Some(page)) = repo.get_page(page_id_or_title).await {
         return Ok(page);
     }
@@ -455,11 +437,7 @@ async fn do_link_graph(
     serde_json::to_string_pretty(&nodes).map_err(|e| e.to_string())
 }
 
-async fn do_title_search(
-    repo: &SqliteWikiRepository,
-    query: &str,
-    limit: u32,
-) -> Result<String, String> {
+async fn do_title_search(repo: &SqliteWikiRepository, query: &str, limit: u32) -> Result<String, String> {
     let titles = repo.title_search(query, limit).await.map_err(|e| e.to_string())?;
     serde_json::to_string_pretty(&titles).map_err(|e| e.to_string())
 }
@@ -589,18 +567,14 @@ mod tests {
         let (repo, _db) = test_repo().await;
 
         // Create.
-        let result = do_write(&repo, "New Page", "content here", Some("a,b"))
-            .await
-            .unwrap();
+        let result = do_write(&repo, "New Page", "content here", Some("a,b")).await.unwrap();
         assert!(result.starts_with("created wiki page: New Page"));
 
         let page = repo.get_page_by_title("New Page").await.unwrap().unwrap();
         assert_eq!(page.tags.len(), 2);
 
         // Update same title.
-        let result = do_write(&repo, "New Page", "updated content", Some("c"))
-            .await
-            .unwrap();
+        let result = do_write(&repo, "New Page", "updated content", Some("c")).await.unwrap();
         assert!(result.starts_with("updated wiki page: New Page"));
 
         let page = repo.get_page_by_title("New Page").await.unwrap().unwrap();
@@ -711,9 +685,7 @@ mod tests {
             })
             .await
             .unwrap();
-        repo.put_edge(&case.id, &statute.id, WikiEdgeType::Cites)
-            .await
-            .unwrap();
+        repo.put_edge(&case.id, &statute.id, WikiEdgeType::Cites).await.unwrap();
 
         // Markdown citation anchored to a heading.
         let cite_md = do_cite(&repo, &statute.id, Some("Performance"), "markdown")
@@ -723,9 +695,7 @@ mod tests {
         assert!(cite_md.contains("#performance"));
 
         // Plain citation uses source_ref.
-        let cite_plain = do_cite(&repo, &statute.id, None, "plain")
-            .await
-            .unwrap();
+        let cite_plain = do_cite(&repo, &statute.id, None, "plain").await.unwrap();
         assert!(cite_plain.contains("CN-Civil-Code#523"));
 
         // Link graph from the case shows an outgoing cites edge (case -> statute).
@@ -736,9 +706,7 @@ mod tests {
         assert_eq!(nodes[0]["direction"], "outgoing");
 
         // Edge-type filter to a non-matching type yields empty.
-        let graph_filtered = do_link_graph(&repo, &case.id, Some("conflicts"))
-            .await
-            .unwrap();
+        let graph_filtered = do_link_graph(&repo, &case.id, Some("conflicts")).await.unwrap();
         let filtered: Vec<serde_json::Value> = serde_json::from_str(&graph_filtered).unwrap();
         assert!(filtered.is_empty());
     }

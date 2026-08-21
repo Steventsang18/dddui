@@ -7,6 +7,7 @@
 import { Message, Modal } from '@arco-design/web-react';
 import { ipcBridge } from '@/common';
 import { isErrorTipMessage, transformMessage } from '@/common/chat/chatLib';
+import { getBaseUrl } from '@/common/adapter/httpBridge';
 import type { IResponseMessage } from '@/common/adapter/ipcBridge';
 import type { TChatConversation, TokenUsageData, TurnUsageStats } from '@/common/config/storage';
 import { uuid } from '@/common/utils';
@@ -315,12 +316,15 @@ export const useAionrsMessage = (
                   ? usageData.elapsed_ms
                   : Math.max(Date.now() - (getConversationTurnStart(conversation_id) ?? Date.now()), 0);
               const perTurnTotal = input + output;
-              const cumulativeTotal = tokenUsageRef.current?.total_tokens ?? perTurnTotal;
+              // Accumulate: each turn's input+output adds to the running
+              // conversation total (the previous `??` fallback froze it at
+              // the first turn's number forever).
+              const cumulativeTotal = (tokenUsageRef.current?.total_tokens ?? 0) + perTurnTotal;
               const nextUsage: TokenUsageData = {
-                // `total_tokens` is the cumulative conversation count (the live
-                // /usage snapshot below is authoritative); only fall back to this
-                // turn's sum while that snapshot is still pending. `breakdown`
-                // holds the per-reply 上行/下行 token counts.
+                // `total_tokens` is the cumulative conversation count; the
+                // /usage snapshot below only refreshes `context_used`, never
+                // this counter. `breakdown` holds the per-reply 上行/下行
+                // token counts.
                 total_tokens: cumulativeTotal,
                 breakdown: {
                   ...(tokenUsageRef.current?.breakdown),
@@ -369,16 +373,20 @@ export const useAionrsMessage = (
               });
             }
             // Re-fetch the live /usage snapshot once a turn converges so the
-            // cumulative "total tokens" metric stays current. A fresh conversation
-            // reports 404 until the first turn activates the agent (the mount-time
-            // hydrate can therefore miss it). Never shrink an already-known window.
+            // context ring shows the just-finished turn's real footprint. A
+            // fresh conversation reports 404 until the first turn activates the
+            // agent (the mount-time hydrate can therefore miss it). Never
+            // shrink an already-known window.
             void ipcBridge.conversation.getUsage
               .invoke({ conversation_id })
               .then((usage) => {
                 if (!usage || typeof usage.used !== 'number' || usage.used <= 0) return;
                 setTokenUsage((prev) => {
                   const next: TokenUsageData = {
-                    total_tokens: Math.max(usage.used, prev?.total_tokens ?? 0),
+                    // Keep the accumulated total: `usage.used` is the current
+                    // context footprint, a different quantity — max()ing it in
+                    // inflated (or pinned) the cumulative counter.
+                    total_tokens: prev?.total_tokens ?? 0,
                     // Keep the frozen elapsed value: the previous code dropped
                     // `elapsed_ms` here, which is why the Clock metric could
                     // collapse to 0 right after a reply converged.
@@ -433,7 +441,7 @@ export const useAionrsMessage = (
             if (traceModel) {
               const turnStart = getConversationTurnStart(conversation_id) ?? Date.now();
               const durationMs = Math.max(Date.now() - turnStart, 0);
-              fetch(`/api/conversations/${conversation_id}/trace-event`, {
+              fetch(`${getBaseUrl()}/api/conversations/${conversation_id}/trace-event`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -629,7 +637,9 @@ export const useAionrsMessage = (
           if (cancelled || !usage || typeof usage.used !== 'number' || usage.used <= 0) return;
           setTokenUsage((prev) => {
             const next: TokenUsageData = {
-              total_tokens: Math.max(usage.used, prev?.total_tokens ?? 0),
+              // Keep the accumulated total (persisted or finish-event value);
+              // this snapshot only carries the live context footprint.
+              total_tokens: prev?.total_tokens ?? 0,
               breakdown: prev?.breakdown,
               elapsed_ms: prev?.elapsed_ms,
               context_used: usage.used,

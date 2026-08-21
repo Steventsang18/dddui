@@ -113,6 +113,7 @@ import {
   toApiModelOptional,
 } from './apiModelMapper';
 import {
+  getBaseUrl,
   httpDelete,
   httpGet,
   httpPatch,
@@ -1608,7 +1609,8 @@ export const wiki = {
       if (relativePath) {
         form.append('path', relativePath);
       }
-      const resp = await fetch('/api/wiki/raw', {
+      // 桌面壳下页面由 tauri://localhost 托管，相对路径无法命中后端，需拼 baseUrl
+      const resp = await fetch(`${getBaseUrl()}/api/wiki/raw`, {
         method: 'POST',
         body: form,
       });

@@ -56,4 +56,6 @@ jobs:
         continue-on-error: true
       - run: cargo clippy --workspace --exclude rupoo -- -D warnings
       - uses: taiki-e/install-action@nextest
-      - run: cargo nextest run --workspace
+      # 与 clippy 一致排除 rupoo：extern/rupoo 的 bin 在 --workspace 全量编译时
+      # 会因 tui feature 门控报 E0433（`crate::cli` 不可见），见 docs/编译遵守原则。
+      - run: cargo nextest run --workspace --exclude rupoo

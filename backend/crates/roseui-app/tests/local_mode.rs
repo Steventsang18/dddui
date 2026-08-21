@@ -35,9 +35,12 @@ async fn test_local_mode_skips_auth() {
 #[tokio::test]
 async fn test_non_local_mode_requires_auth() {
     let db = roseui_db::init_database_memory().await.unwrap();
-    let services = roseui_app::AppServices::from_config(db, &roseui_app::AppConfig::default())
-        .await
-        .unwrap();
+    // 默认 AppConfig 是 Owner（local 语义）；显式用 WebUi 才能验证"非 local 模式要求登录"。
+    let config = roseui_app::AppConfig {
+        identity_mode: roseui_app::IdentityMode::WebUi,
+        ..roseui_app::AppConfig::default()
+    };
+    let services = roseui_app::AppServices::from_config(db, &config).await.unwrap();
 
     let router = roseui_app::create_router(&services).await.expect("build router");
 

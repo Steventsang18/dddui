@@ -33,13 +33,13 @@ use roseui_extension::{extension_routes, hub_routes, skill_routes};
 use roseui_file::file_routes;
 use roseui_mcp::mcp_routes;
 use roseui_office::{office_proxy_routes, office_routes};
-use roseui_wiki::wiki_routes;
-use roseui_webhost::webhost_routes;
 use roseui_project::project_routes;
 use roseui_realtime::{NoopMessageRouter, WsHandlerState, ws_upgrade_handler};
 use roseui_shell::shell_routes;
 use roseui_system::{ClientPrefService, connection_test_routes, system_routes};
 use roseui_team::{TeamSessionService, team_routes};
+use roseui_webhost::webhost_routes;
+use roseui_wiki::wiki_routes;
 
 use crate::services::AppServices;
 

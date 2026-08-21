@@ -17,7 +17,12 @@ use roseui_app::{AppConfig, AppServices};
 
 async fn build_app() -> (axum::Router, AppServices) {
     let db = roseui_db::init_database_memory().await.unwrap();
-    let services = AppServices::from_config(db, &AppConfig::default()).await.unwrap();
+    // auth/CSRF 断言要求非 local 模式：Owner（默认）会跳过 JWT/CSRF。
+    let config = AppConfig {
+        identity_mode: roseui_app::IdentityMode::WebUi,
+        ..AppConfig::default()
+    };
+    let services = AppServices::from_config(db, &config).await.unwrap();
     let router = roseui_app::create_router(&services).await.expect("build router");
     (router, services)
 }
@@ -161,8 +166,9 @@ async fn t12_1_security_headers_on_all_responses() {
 async fn t12_1_security_headers_on_error_responses() {
     let (app, _services) = build_app().await;
 
-    // 404 response should still have security headers
-    let resp = app.oneshot(get_request("/nonexistent")).await.unwrap();
+    // 404 response should still have security headers。
+    // 注意：非 /api 路径会被 SPA fallback 吞成 index.html(200)，须用 /api 路径触发 404。
+    let resp = app.oneshot(get_request("/api/nonexistent")).await.unwrap();
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
     assert_eq!(resp.headers().get("x-frame-options").unwrap(), "DENY");
 }

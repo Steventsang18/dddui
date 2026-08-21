@@ -20,7 +20,12 @@ async fn response_json(body: Body) -> serde_json::Value {
 
 async fn build_app() -> axum::Router {
     let db = roseui_db::init_database_memory().await.unwrap();
-    let services = AppServices::from_config(db, &AppConfig::default()).await.unwrap();
+    // CSRF 断言（health_check_post_blocked_by_csrf）要求非 local 模式。
+    let config = AppConfig {
+        identity_mode: roseui_app::IdentityMode::WebUi,
+        ..AppConfig::default()
+    };
+    let services = AppServices::from_config(db, &config).await.unwrap();
     roseui_app::create_router(&services).await.expect("build router")
 }
 
@@ -81,8 +86,9 @@ async fn health_check_post_blocked_by_csrf() {
 async fn unknown_route_returns_not_found() {
     let app = build_app().await;
 
+    // 非 /api 路径会被 SPA fallback 吞成 index.html(200)，须用 /api 路径触发 404。
     let response = app
-        .oneshot(build_request("GET", "/nonexistent"))
+        .oneshot(build_request("GET", "/api/nonexistent"))
         .await
         .expect("request failed");
 

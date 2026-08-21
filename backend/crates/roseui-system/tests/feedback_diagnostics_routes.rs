@@ -1,20 +1,20 @@
 use std::sync::Arc;
 
+use axum::body::Body;
+use axum::http::{Request, StatusCode};
+use http_body_util::BodyExt;
 use roseui_auth::CurrentUser;
 use roseui_realtime::BroadcastEventBus;
 use roseui_system::{
     ClientPrefService, FeedbackDiagnosticsService, ModelFetchService, ProtocolDetectionService, ProviderService,
     RuntimePrepareService, SettingsService, SystemRouterState, VersionCheckService, system_routes,
 };
-use axum::body::Body;
-use axum::http::{Request, StatusCode};
-use http_body_util::BodyExt;
 use serde_json::json;
 use tower::ServiceExt;
 
 use roseui_db::{
-    SqliteClientPreferenceRepository, SqliteFeedbackDiagnosticsRepository, SqliteProviderRepository,
-    SqliteSettingsRepository, UserStatus, UserType, init_database_memory,
+    SqliteClientPreferenceRepository, SqliteFeedbackDiagnosticsRepository, SqliteIndustryTemplateRepository,
+    SqliteProviderRepository, SqliteSettingsRepository, UserStatus, UserType, init_database_memory,
 };
 
 const TEST_ENCRYPTION_KEY: [u8; 32] = [0x42; 32];
@@ -33,6 +33,7 @@ fn build_state(db: &roseui_db::Database) -> SystemRouterState {
         feedback_diagnostics_service: FeedbackDiagnosticsService::new(Arc::new(
             SqliteFeedbackDiagnosticsRepository::new(db.pool().clone()),
         )),
+        industry_template_repo: Arc::new(SqliteIndustryTemplateRepository::new(db.pool().clone())),
     }
 }
 

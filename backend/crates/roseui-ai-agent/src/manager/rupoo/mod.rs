@@ -12,12 +12,14 @@
 
 pub mod translate;
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
+use roseui_api_types::{
+    AgentModeResponse, ConfigOptionConfirmation, GetConfigOptionsResponse, SetConfigOptionResponse, SlashCommandItem,
+};
 use roseui_common::{AgentKillReason, AgentType, Confirmation, ConversationStatus, TimestampMs, now_ms};
 use rupoo::agent::ToolExecutor;
-use roseui_api_types::{AgentModeResponse, ConfigOptionConfirmation, GetConfigOptionsResponse, SetConfigOptionResponse, SlashCommandItem};
 use tokio::sync::broadcast;
 use tokio::sync::mpsc;
 
@@ -71,6 +73,12 @@ pub struct RupooAgentManager {
     /// engine's internal `TokenBudget` (a 4096-token prompt-assembly budget
     /// that made every conversation look nearly full).
     context_window: u64,
+    /// Prompt size (tokens) reported by the provider on the last LLM call —
+    /// i.e. the real context-window occupancy the UI ring must show. The
+    /// engine's own `ConversationContext` is never written on the `agent_chat`
+    /// path (chat history lives in `self.history`), so reading it only
+    /// reported the static system block. Zero until the first turn finishes.
+    last_prompt_tokens: AtomicU64,
 }
 
 /// Best-effort lookup of a model's real context-window size (tokens) from its
@@ -94,10 +102,7 @@ fn model_context_window(label: &str) -> Option<u64> {
         ("yi-", 200_000),
         ("glm", 128_000),
     ];
-    TABLE
-        .iter()
-        .find(|(key, _)| l.contains(key))
-        .map(|(_, window)| *window)
+    TABLE.iter().find(|(key, _)| l.contains(key)).map(|(_, window)| *window)
 }
 
 impl RupooAgentManager {
@@ -139,8 +144,7 @@ impl RupooAgentManager {
         // This makes template policies actually bite: command jail, approval
         // policy, and tool allow/exclude scoping all flow into the engine.
         let (executor, safety): (rupoo::mcp::McpToolExecutor, rupoo::safety::SafetyContext) =
-            if let (Some(section), Some(profile)) =
-                (config.industry_safety.as_ref(), config.industry_profile.as_ref())
+            if let (Some(section), Some(profile)) = (config.industry_safety.as_ref(), config.industry_profile.as_ref())
             {
                 let exec = rupoo::mcp::McpToolExecutor::with_safety_section(
                     section,
@@ -151,10 +155,7 @@ impl RupooAgentManager {
                 (exec, safety)
             } else {
                 let safety = rupoo::safety::SafetyContext::default();
-                let exec = rupoo::mcp::McpToolExecutor::with_safety_and_approval(
-                    safety.clone(),
-                    approval_gate.clone(),
-                );
+                let exec = rupoo::mcp::McpToolExecutor::with_safety_and_approval(safety.clone(), approval_gate.clone());
                 (exec, safety)
             };
 
@@ -169,15 +170,11 @@ impl RupooAgentManager {
 
         // ── Engine assembly ──
         let agent = rupoo::agent::Agent::with_safety(repo, tool_executor, safety);
-        let gateway = rupoo::llm::LlmGateway::with_jail(
-            llm_config,
-            std::path::PathBuf::from(&workspace),
-        )
-        .with_extra_tools(extra_tools);
+        let gateway = rupoo::llm::LlmGateway::with_jail(llm_config, std::path::PathBuf::from(&workspace))
+            .with_extra_tools(extra_tools);
         let agent = Arc::new(agent.with_llm(gateway));
 
-        let history = rupoo::llm::ConversationHistory::new(config.max_turns.unwrap_or(50))
-            .with_token_budget(60_000);
+        let history = rupoo::llm::ConversationHistory::new(config.max_turns.unwrap_or(50)).with_token_budget(60_000);
 
         let translator = EventTranslator::new().with_approval_tools(approval_tool_names.clone());
 
@@ -198,6 +195,7 @@ impl RupooAgentManager {
             approval_drain: Mutex::new(None),
             max_turns: config.max_turns.unwrap_or(50),
             context_window: model_context_window(&config.model).unwrap_or(200_000),
+            last_prompt_tokens: AtomicU64::new(0),
         })
     }
 
@@ -220,8 +218,7 @@ async fn register_external_mcp_servers(
         return Vec::new();
     }
 
-    let mut stdio: std::collections::HashMap<String, rupoo::config::McpServerConfig> =
-        std::collections::HashMap::new();
+    let mut stdio: std::collections::HashMap<String, rupoo::config::McpServerConfig> = std::collections::HashMap::new();
     for (name, cfg) in servers {
         match (&cfg.transport, &cfg.command) {
             (aion_config::config::TransportType::Stdio, Some(command)) => {
@@ -258,13 +255,11 @@ async fn register_external_mcp_servers(
                     tools = tools.len(),
                     "external stdio MCP server connected"
                 );
-                executor
-                    .register_mcp_client_tools(client.clone(), &name, &tools)
-                    .await;
+                executor.register_mcp_client_tools(client.clone(), &name, &tools).await;
                 extra_tools.extend(
-                    tools.iter().map(|info| {
-                        rupoo::mcp::McpToolDyn::new(client.clone(), &name, info)
-                    }),
+                    tools
+                        .iter()
+                        .map(|info| rupoo::mcp::McpToolDyn::new(client.clone(), &name, info)),
                 );
             }
             Err(error) => {
@@ -316,7 +311,9 @@ impl IAgentTask for RupooAgentManager {
         }
 
         // Emit the turn-start marker.
-        self.emit(translate::EventTranslator::start_event(Some(self.conversation_id.clone())));
+        self.emit(translate::EventTranslator::start_event(Some(
+            self.conversation_id.clone(),
+        )));
 
         // Drive the engine. `agent_chat` streams via the `on_event` callback;
         // we translate and fan each event out on the broadcast channel.
@@ -379,7 +376,15 @@ impl IAgentTask for RupooAgentManager {
         let history_snapshot = self.history.lock().unwrap().clone();
 
         let result = agent
-            .agent_chat(&user_message, &history_snapshot, max_turns, safe_mode, on_event, None, self.industry_system_prompt.clone())
+            .agent_chat(
+                &user_message,
+                &history_snapshot,
+                max_turns,
+                safe_mode,
+                on_event,
+                None,
+                self.industry_system_prompt.clone(),
+            )
             .await;
 
         // The approval drain stays alive across turns (it owns the engine's
@@ -389,6 +394,9 @@ impl IAgentTask for RupooAgentManager {
             Ok((response, usage)) => {
                 // Record assistant turn in history for next round.
                 self.history.lock().unwrap().push_assistant(&response);
+                // Refresh the live context-footprint reading: the final call's
+                // prompt size is exactly what occupied the window this turn.
+                self.last_prompt_tokens.store(usage.prompt_tokens as u64, Ordering::SeqCst);
                 self.emit(translate::EventTranslator::finish_event(
                     Some(self.conversation_id.clone()),
                     Some(usage),
@@ -398,12 +406,10 @@ impl IAgentTask for RupooAgentManager {
             }
             Err(e) => {
                 tracing::error!(conversation_id = %self.conversation_id, error = %e, "rupoo agent_chat failed");
-                self.emit(AgentStreamEvent::Error(
-                    roseui_api_types::AgentStreamErrorData::legacy(
-                        format!("engine error: {e}"),
-                        None,
-                    ),
-                ));
+                self.emit(AgentStreamEvent::Error(roseui_api_types::AgentStreamErrorData::legacy(
+                    format!("engine error: {e}"),
+                    None,
+                )));
                 *self.started.lock().unwrap() = Some(ConversationStatus::Finished);
                 Ok(())
             }
@@ -447,21 +453,23 @@ impl RupooAgentManager {
     }
 
     pub fn get_confirmations(&self) -> Vec<Confirmation> {
-        self.confirmations
-            .read()
-            .map(|c| c.clone())
-            .unwrap_or_default()
+        self.confirmations.read().map(|c| c.clone()).unwrap_or_default()
     }
 
-    /// Live context-window occupancy for the #14 consumption ring. Reads the
-    /// engine's unified `ConversationContext` directly (no wire round-trip):
-    /// `estimated_context_tokens()` is the assembled prompt+history token count,
-    /// while the capacity is the *model* context window (resolved from the
-    /// model label at build time) — NOT the engine's internal `TokenBudget`
-    /// (a 4096-token prompt-assembly budget). Returns `(used, size)`.
+    /// Live context-window occupancy for the #14 consumption ring. Prefers
+    /// the prompt size the provider reported on the last LLM call (the exact
+    /// window occupancy of that turn); before the first turn finishes, falls
+    /// back to a char-based estimate of `self.history`. The engine's own
+    /// `ConversationContext` is intentionally NOT read: the `agent_chat` path
+    /// never writes it, so it would report only the static system block. The
+    /// capacity is the *model* context window (resolved from the model label
+    /// at build time) — NOT the engine's internal `TokenBudget` (a 4096-token
+    /// prompt-assembly budget). Returns `(used, size)`.
     pub fn get_usage(&self) -> (u64, u64) {
-        let ctx = self.agent.context();
-        let used = ctx.estimated_context_tokens() as u64;
+        let used = match self.last_prompt_tokens.load(Ordering::SeqCst) {
+            0 => self.history.lock().map(|h| h.estimated_tokens() as u64).unwrap_or(0),
+            tokens => tokens,
+        };
         (used, self.context_window)
     }
 
@@ -485,10 +493,7 @@ impl RupooAgentManager {
             confs.retain(|c| c.call_id != call_id);
         }
 
-        let value = data
-            .get("value")
-            .and_then(|v| v.as_str())
-            .unwrap_or("cancel");
+        let value = data.get("value").and_then(|v| v.as_str()).unwrap_or("cancel");
         let approved = value != "cancel";
 
         if approved && (always_allow || value == "proceed_always") {

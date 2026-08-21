@@ -28,6 +28,7 @@ use roseui_db::{
 };
 use roseui_realtime::EventBroadcaster;
 
+use common::MockTeamRepo;
 use roseui_team::ports::{
     AgentTurnCancellationPort, AgentTurnExecutionError, AgentTurnExecutionPort, AgentTurnOutcome, AgentTurnRequest,
     AgentTurnStarted, AgentTurnStatus, TeamAssistantCatalogEntry, TeamAssistantCatalogPort,
@@ -39,7 +40,6 @@ use roseui_team::{
     TeamProjectionMessageStore,
 };
 use roseui_team::{TeamError, TeamSessionService};
-use common::MockTeamRepo;
 
 // ---------------------------------------------------------------------------
 // Mock ConversationRepository — minimal impl for TeamSessionService tests
@@ -1321,8 +1321,8 @@ impl GatedProvisioningFactory {
 }
 
 fn confirmations_factory(count: usize) -> AgentFactory {
-    use roseui_common::Confirmation;
     use futures_util::FutureExt;
+    use roseui_common::Confirmation;
     Arc::new(move |opts: BuildTaskOptions| {
         let confirmations = (0..count)
             .map(|idx| Confirmation {

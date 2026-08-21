@@ -64,9 +64,12 @@ async fn create_conversation(app: &mut axum::Router, token: &str, csrf: &str, na
 
 async fn build_app() -> (axum::Router, roseui_app::AppServices) {
     let db = roseui_db::init_database_memory().await.unwrap();
-    let services = roseui_app::AppServices::from_config(db, &roseui_app::AppConfig::default())
-        .await
-        .unwrap();
+    // auth 断言（requires_auth 等）要求非 local 模式。
+    let config = roseui_app::AppConfig {
+        identity_mode: roseui_app::IdentityMode::WebUi,
+        ..roseui_app::AppConfig::default()
+    };
+    let services = roseui_app::AppServices::from_config(db, &config).await.unwrap();
     let router = roseui_app::create_router(&services).await.expect("build router");
     (router, services)
 }

@@ -8,9 +8,9 @@ mod context;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use roseui_db::{IMcpServerRepository, IProviderRepository, IIndustryTemplateRepository};
-use roseui_realtime::EventBroadcaster;
 use futures_util::FutureExt;
+use roseui_db::{IIndustryTemplateRepository, IMcpServerRepository, IProviderRepository};
+use roseui_realtime::EventBroadcaster;
 
 use crate::agent_task::AgentInstance;
 use crate::capability::skill_manager::AcpSkillManager;

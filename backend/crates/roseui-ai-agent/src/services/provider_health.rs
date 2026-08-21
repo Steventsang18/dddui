@@ -9,11 +9,11 @@ use aion_agent::engine::AgentEngine;
 use aion_agent::output::OutputSink;
 use aion_agent::output::null_sink::NullSink;
 use aion_config::config::{CliArgs, Config};
+use regex::Regex;
 use roseui_api_types::{
     HealthStatus, ProviderHealthCheckErrorKind, ProviderHealthCheckRequest, ProviderHealthCheckResponse,
 };
 use roseui_db::{IProviderRepository, models::Provider};
-use regex::Regex;
 use tracing::{info, warn};
 
 use crate::factory::aionrs::{

@@ -653,7 +653,12 @@ fn dag_node(id: &str, slot: &str, deps: &[&str]) -> super::dag::WorkflowNode {
 /// backfills the node→intent mapping, so here we record the mapping directly
 /// (as the session would) and then complete the batch. Mirrors what the real
 /// reconcile loop + `dispatch_dag_ready` do end to end.
-fn finish_node(coordinator: &SlotWorkCoordinator, run_id: &str, node_id: &str, slot_id: &str) -> Vec<super::DagReadyNode> {
+fn finish_node(
+    coordinator: &SlotWorkCoordinator,
+    run_id: &str,
+    node_id: &str,
+    slot_id: &str,
+) -> Vec<super::DagReadyNode> {
     coordinator.set_runtime_constraint(slot_id, RuntimeConstraint::Ready);
     // The session records the mapping (node -> synthetic intent) on enqueue.
     let intent_id = format!("intent-{node_id}");
@@ -748,5 +753,8 @@ fn dag_rejects_cycle_before_execution() {
     let def = super::dag::WorkflowDef {
         nodes: vec![dag_node("x", "slot-x", &["y"]), dag_node("y", "slot-y", &["x"])],
     };
-    assert!(matches!(coordinator.start_dag(def), Err(super::dag::DagError::Cycle { .. })));
+    assert!(matches!(
+        coordinator.start_dag(def),
+        Err(super::dag::DagError::Cycle { .. })
+    ));
 }

@@ -1,7 +1,9 @@
 use crate::shared_kernel::PersistedSessionState;
 use agent_client_protocol::schema::v1::{EnvVariable, McpServer, McpServerStdio, NewSessionRequest};
 use roseui_api_types::AgentMetadata;
-use roseui_api_types::{AcpBuildExtra, TEAM_MCP_SERVER_NAME, TeamMcpStdioConfig, WIKI_MCP_SERVER_NAME, WikiMcpStdioConfig};
+use roseui_api_types::{
+    AcpBuildExtra, TEAM_MCP_SERVER_NAME, TeamMcpStdioConfig, WIKI_MCP_SERVER_NAME, WikiMcpStdioConfig,
+};
 use roseui_common::CommandSpec;
 use std::path::PathBuf;
 
@@ -126,10 +128,7 @@ fn team_mcp_server(cfg: &TeamMcpStdioConfig) -> McpServer {
 }
 
 fn wiki_mcp_server(cfg: &WikiMcpStdioConfig) -> McpServer {
-    let env = vec![EnvVariable::new(
-        "ROSEUI_WIKI_DB_PATH".to_owned(),
-        cfg.db_path.clone(),
-    )];
+    let env = vec![EnvVariable::new("ROSEUI_WIKI_DB_PATH".to_owned(), cfg.db_path.clone())];
     let stdio = McpServerStdio::new(WIKI_MCP_SERVER_NAME, &cfg.binary_path)
         .args(vec!["mcp-wiki-stdio".to_owned()])
         .env(env);

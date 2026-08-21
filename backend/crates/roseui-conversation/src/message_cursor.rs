@@ -1,5 +1,5 @@
-use roseui_db::MessagePageCursor;
 use base64::Engine;
+use roseui_db::MessagePageCursor;
 
 use crate::ConversationError;
 

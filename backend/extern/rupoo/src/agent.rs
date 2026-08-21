@@ -1062,7 +1062,7 @@ impl Agent {
         }
 
         // Absolute last resort (should never happen if prompt.default.toml is valid)
-        "You are Rupoo, an AI-powered terminal assistant.".to_string()
+        "You are DddAgent, the built-in AI assistant of DoDidDoneUi.".to_string()
     }
 
     // ---------------------------------------------------------------------------

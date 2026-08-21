@@ -6,7 +6,10 @@ use super::*;
 /// current model if it can be pinned, else the union across all advertised models (so we
 /// don't hide a level some selectable model supports when the current model is ambiguous /
 /// not-yet-known). Empty result = no effort axis → the caller omits the option entirely.
-pub(crate) fn resolve_current_model_efforts(models: &[roseui_session::ModelInfo], current_model: Option<&str>) -> Vec<String> {
+pub(crate) fn resolve_current_model_efforts(
+    models: &[roseui_session::ModelInfo],
+    current_model: Option<&str>,
+) -> Vec<String> {
     if let Some(model) = current_model.and_then(|id| models.iter().find(|m| m.id == id)) {
         return model.reasoning_efforts.clone();
     }

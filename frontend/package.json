@@ -90,7 +90,6 @@
     "diff2html": "^3.4.55",
     "dingtalk-stream": "^2.1.4",
     "docx": "^9.5.1",
-
     "eventemitter3": "^5.0.1",
     "express": "^5.1.0",
     "express-rate-limit": "^7.5.1",
@@ -141,7 +140,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
-    "@vitejs/plugin-react": "^4.4.0",
+    "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -161,6 +160,7 @@
     "@types/turndown": "^5.0.6",
     "@types/ws": "^8.18.1",
     "@types/yauzl": "^2.10.3",
+    "@vitejs/plugin-react": "^4.4.0",
     "@vitest/coverage-v8": "^4.0.18",
     "cross-env": "^7.0.3",
     "dotenv": "^17.2.1",
@@ -184,7 +184,6 @@
     "vite-plugin-static-copy": "^3.2.0",
     "vitest": "^4.0.18"
   },
-  "optionalDependencies": {},
   "resolutions": {
     "@codemirror/language": "6.12.3",
     "body-parser": "^2.2.1",

@@ -560,9 +560,13 @@ async fn status_handler(
         .and_then(|token| state.jwt_service.verify(&token).ok())
         .is_some();
 
+    // --local 模式（桌面壳/单用户）没有账号初始化环节：壳以 system_default_user
+    // 直接注入身份，永远不应触发首启凭据设置流程。
+    let needs_setup = state.identity_mode != AuthIdentityMode::Local && !has_users;
+
     Ok(Json(AuthStatusResponse {
         success: true,
-        needs_setup: !has_users,
+        needs_setup,
         user_count: user_count as u64,
         is_authenticated,
     }))

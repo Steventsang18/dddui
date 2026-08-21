@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use roseui_common::{
-    AgentKillReason, AgentType, ConversationStatus, ErrorChain, OnConversationDelete, TimestampMs, now_ms,
-};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use futures_util::future::{BoxFuture, join_all};
+use roseui_common::{
+    AgentKillReason, AgentType, ConversationStatus, ErrorChain, OnConversationDelete, TimestampMs, now_ms,
+};
 use tokio::sync::OnceCell;
 use tracing::{debug, info, warn};
 
@@ -13,7 +13,7 @@ use crate::active_lease::ActiveLeaseRegistry;
 use crate::agent_task::AgentInstance;
 use crate::error::AgentError;
 use crate::runtime_token::{RuntimeTokenScope, RuntimeTokenService, TEAM_RUNTIME_TOKEN_SESSION_GENERATION};
-use crate::types::{ROSEUI_RUNTIME_TOKEN_ENV, BuildTaskOptions, RuntimeCapabilities};
+use crate::types::{BuildTaskOptions, ROSEUI_RUNTIME_TOKEN_ENV, RuntimeCapabilities};
 
 /// Factory function that creates an [`AgentInstance`] from build options.
 ///
@@ -372,8 +372,8 @@ mod tests {
         AcpSessionBuildContext, AgentSessionContext, AgentSessionKind, ConversationContext, WorkspaceContext,
     };
     use crate::types::{CONVERSATION_RUNTIME_CONTEXT_VERSION, SendMessageData};
-    use roseui_common::{AgentKillReason, AgentType, ConversationStatus, ProviderWithModel};
     use futures_util::FutureExt;
+    use roseui_common::{AgentKillReason, AgentType, ConversationStatus, ProviderWithModel};
     use std::sync::atomic::{AtomicI64, Ordering};
     use tokio::sync::broadcast;
 

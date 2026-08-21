@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use roseui_ai_agent::IWorkerTaskManager;
 use roseui_api_types::{
     AddAgentRequest, GetConfigOptionsResponse, TeamAgentInput, TeamToolTransport, WikiMcpStdioConfig,
@@ -7,7 +8,6 @@ use roseui_api_types::{
 use roseui_common::{AgentKillReason, AgentType, ProviderWithModel, generate_id};
 use roseui_db::models::{AgentMetadataRow, TeamRow};
 use roseui_db::{IAgentMetadataRepository, IProviderRepository, ITeamRepository, UpdateTeamParams};
-use async_trait::async_trait;
 use tracing::{info, warn};
 
 use crate::capability::{supports_team_cli_fallback_backend, supports_team_mcp_backend};
@@ -777,13 +777,10 @@ impl TeamAgentProvisioner {
     /// "default" with an HTTP 400 invalid model error.
     async fn first_enabled_provider_with_model(&self, user_id: &str) -> Option<(String, String)> {
         let providers = self.provider_repo.list(user_id).await.ok()?;
-        providers
-            .into_iter()
-            .find(|p| p.enabled)
-            .and_then(|p| {
-                let models: Vec<String> = serde_json::from_str(&p.models).unwrap_or_default();
-                models.into_iter().next().map(|m| (p.id, m))
-            })
+        providers.into_iter().find(|p| p.enabled).and_then(|p| {
+            let models: Vec<String> = serde_json::from_str(&p.models).unwrap_or_default();
+            models.into_iter().next().map(|m| (p.id, m))
+        })
     }
 }
 

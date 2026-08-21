@@ -37,7 +37,7 @@ import { useDesktopTurnNotification } from '@renderer/hooks/system/notification/
 import { useDirectorySelection } from '@renderer/hooks/file/useDirectorySelection';
 import { cleanupSiderTooltips } from '@renderer/utils/ui/siderTooltip';
 import { useConversationShortcuts } from '@renderer/hooks/ui/useConversationShortcuts';
-import { isElectronDesktop } from '@renderer/utils/platform';
+import { isDesktopShell, isElectronDesktop } from '@renderer/utils/platform';
 import brandLogo from '@renderer/assets/logos/brand/app.png';
 import '@renderer/styles/layout.css';
 
@@ -102,7 +102,7 @@ const MOBILE_SIDER_MAX_WIDTH = 420;
 
 const detectMobileViewportOrTouch = (): boolean => {
   if (typeof window === 'undefined') return false;
-  if (isElectronDesktop()) {
+  if (isDesktopShell()) {
     return window.innerWidth < 768;
   }
   const width = window.innerWidth;

@@ -5,9 +5,9 @@
 use std::path::Path;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use roseui_db::ISkillRepository;
 pub use roseui_extension::ResolvedAgentSkill;
-use async_trait::async_trait;
 use tracing::warn;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

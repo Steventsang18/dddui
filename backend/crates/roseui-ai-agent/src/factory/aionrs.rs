@@ -258,7 +258,11 @@ pub(super) async fn build(
 async fn resolve_industry_template(
     deps: &AgentFactoryDeps,
     user_id: &str,
-) -> (Option<String>, Option<rupoo::config::SafetySection>, Option<rupoo::config::AgentProfile>) {
+) -> (
+    Option<String>,
+    Option<rupoo::config::SafetySection>,
+    Option<rupoo::config::AgentProfile>,
+) {
     let Some(repo) = deps.industry_template_repo.as_ref() else {
         return (None, None, None);
     };

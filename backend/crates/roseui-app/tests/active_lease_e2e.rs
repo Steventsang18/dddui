@@ -1,15 +1,15 @@
 mod common;
 
+use axum::body::Body;
+use axum::http::{Request, StatusCode};
 use roseui_common::now_ms;
 use roseui_db::models::TeamRow;
 use roseui_db::{ITeamRepository, SqliteTeamRepository};
 use roseui_team::{TeamAgent, TeammateRole};
-use axum::body::Body;
-use axum::http::{Request, StatusCode};
 use serde_json::json;
 use tower::ServiceExt;
 
-use common::{body_json, build_app, json_with_token, setup_and_login};
+use common::{body_json, build_app_webui, json_with_token, setup_and_login};
 
 fn empty_post_with_token(uri: &str, token: &str, csrf: &str) -> Request<Body> {
     Request::builder()
@@ -97,7 +97,7 @@ async fn insert_team(services: &roseui_app::AppServices, user_id: &str, team_id:
 
 #[tokio::test]
 async fn conversation_active_lease_renews_owned_conversation() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let conversation_id = create_conversation(&mut app, &token, &csrf).await;
 
@@ -114,7 +114,7 @@ async fn conversation_active_lease_renews_owned_conversation() {
 
 #[tokio::test]
 async fn conversation_active_lease_rejects_missing_auth() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let conversation_id = create_conversation(&mut app, &token, &csrf).await;
 
@@ -133,7 +133,7 @@ async fn conversation_active_lease_rejects_missing_auth() {
 
 #[tokio::test]
 async fn conversation_active_lease_rejects_missing_csrf() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let conversation_id = create_conversation(&mut app, &token, &csrf).await;
 
@@ -152,7 +152,7 @@ async fn conversation_active_lease_rejects_missing_csrf() {
 
 #[tokio::test]
 async fn conversation_active_lease_rejects_cross_user_without_renewing() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (owner_token, owner_csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let conversation_id = create_conversation(&mut app, &owner_token, &owner_csrf).await;
     let (other_token, other_csrf) = setup_and_login(&mut app, &services, "other", "StrongP@ss2").await;
@@ -172,7 +172,7 @@ async fn conversation_active_lease_rejects_cross_user_without_renewing() {
 
 #[tokio::test]
 async fn team_active_lease_renews_member_conversations() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let owner = services.user_repo.find_by_username("admin").await.unwrap().unwrap();
     insert_team(
@@ -201,7 +201,7 @@ async fn team_active_lease_renews_member_conversations() {
 
 #[tokio::test]
 async fn team_active_lease_allows_empty_agents() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let owner = services.user_repo.find_by_username("admin").await.unwrap().unwrap();
     insert_team(&services, &owner.id, "team-empty", vec![]).await;
@@ -216,7 +216,7 @@ async fn team_active_lease_allows_empty_agents() {
 
 #[tokio::test]
 async fn team_active_lease_rejects_missing_auth() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, _csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let owner = services.user_repo.find_by_username("admin").await.unwrap().unwrap();
     insert_team(&services, &owner.id, "team-auth", vec![]).await;
@@ -234,7 +234,7 @@ async fn team_active_lease_rejects_missing_auth() {
 
 #[tokio::test]
 async fn team_active_lease_rejects_missing_csrf() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, _csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let owner = services.user_repo.find_by_username("admin").await.unwrap().unwrap();
     insert_team(&services, &owner.id, "team-csrf", vec![]).await;
@@ -254,7 +254,7 @@ async fn team_active_lease_rejects_missing_csrf() {
 
 #[tokio::test]
 async fn team_active_lease_rejects_cross_user_without_renewing() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (_owner_token, _owner_csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let owner = services.user_repo.find_by_username("admin").await.unwrap().unwrap();
     insert_team(

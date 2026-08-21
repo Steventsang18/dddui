@@ -252,6 +252,7 @@ impl ITeamRepository for MockTeamRepo {
 pub(crate) mod workspace_harness {
     use std::sync::{Arc, Mutex};
 
+    use async_trait::async_trait;
     use roseui_ai_agent::{AgentError, IWorkerTaskManager};
     use roseui_api_types::{
         AcpConfigOptionDto, AcpConfigSelectOptionDto, CreateTeamRequest, GetConfigOptionsResponse, WebSocketMessage,
@@ -268,7 +269,6 @@ pub(crate) mod workspace_harness {
         MessagePageResult, MessageRowUpdate, MessageSearchRow, UpdateTeamParams,
     };
     use roseui_realtime::EventBroadcaster;
-    use async_trait::async_trait;
 
     use crate::ports::{
         AgentTurnCancellationPort, AgentTurnExecutionError, AgentTurnExecutionPort, AgentTurnOutcome, AgentTurnRequest,

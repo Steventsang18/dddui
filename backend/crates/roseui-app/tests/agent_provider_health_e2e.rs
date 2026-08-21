@@ -7,11 +7,11 @@ use axum::http::{Request, StatusCode};
 use serde_json::json;
 use tower::ServiceExt;
 
-use common::{body_json, build_app, json_with_token, setup_and_login};
+use common::{body_json, build_app_webui, json_with_token, setup_and_login};
 
 #[tokio::test]
 async fn provider_health_check_unauthenticated_is_rejected() {
-    let (app, _services) = build_app().await;
+    let (app, _services) = build_app_webui().await;
 
     let req = Request::builder()
         .method("POST")
@@ -32,7 +32,7 @@ async fn provider_health_check_unauthenticated_is_rejected() {
 
 #[tokio::test]
 async fn provider_health_check_requires_csrf_for_post() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, _csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
     let req = Request::builder()
@@ -51,7 +51,7 @@ async fn provider_health_check_requires_csrf_for_post() {
 
 #[tokio::test]
 async fn provider_health_check_validates_required_fields() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
     let req = json_with_token(

@@ -919,8 +919,12 @@ fn tail_latest_log(
         .max_by_key(|(_, modified)| *modified)
         .map(|(path, _)| path)
         .ok_or_else(|| {
-            DiagnoseError::new(DiagnoseErrorCode::LogNotFound, command, "no *.dodiddoneui.log files found")
-                .field("path", log_dir.display().to_string())
+            DiagnoseError::new(
+                DiagnoseErrorCode::LogNotFound,
+                command,
+                "no *.dodiddoneui.log files found",
+            )
+            .field("path", log_dir.display().to_string())
         })?;
     let raw = std::fs::read_to_string(&latest).map_err(|_| {
         DiagnoseError::new(DiagnoseErrorCode::LogReadFailed, command, "failed to read log file")

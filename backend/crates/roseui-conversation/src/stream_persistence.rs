@@ -541,13 +541,7 @@ impl StreamPersistenceAdapter {
                 "input": data.input,
             });
             let output = serde_json::json!({ "output": data.output });
-            self.record_tool_event(
-                &data.call_id,
-                status,
-                input,
-                output,
-                now_ms(),
-            );
+            self.record_tool_event(&data.call_id, status, input, output, now_ms());
         }
     }
 
@@ -588,13 +582,7 @@ impl StreamPersistenceAdapter {
         } else {
             let input = serde_json::json!({ "raw_input": data.update.raw_input });
             let output = serde_json::json!({ "raw_output": data.update.raw_output });
-            self.record_tool_event(
-                tool_call_id,
-                status,
-                input,
-                output,
-                now_ms(),
-            );
+            self.record_tool_event(tool_call_id, status, input, output, now_ms());
         }
     }
 

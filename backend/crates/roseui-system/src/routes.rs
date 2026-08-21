@@ -4,8 +4,8 @@ use axum::Router;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Extension, Json, Path, Query, State};
 use axum::http::StatusCode;
-use std::sync::Arc;
 use axum::routing::{delete, get, post};
+use std::sync::Arc;
 
 use roseui_api_types::{
     ApiResponse, ClientPreferencesResponse, CreateProviderRequest, DetectProtocolRequest, EnsureNodeRuntimeRequest,

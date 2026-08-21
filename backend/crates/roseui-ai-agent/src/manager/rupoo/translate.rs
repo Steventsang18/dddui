@@ -24,8 +24,7 @@ use std::sync::Mutex;
 use rupoo::llm::{AgentEvent, TokenUsage};
 
 use crate::protocol::events::{
-    AgentStreamEvent, FinishEventData, StartEventData, TextEventData, ToolCallEventData,
-    ToolCallStatus,
+    AgentStreamEvent, FinishEventData, StartEventData, TextEventData, ToolCallEventData, ToolCallStatus,
 };
 
 /// State carried across a single turn so we can synthesize stable `call_id`s

@@ -3,6 +3,8 @@ mod common;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use async_trait::async_trait;
+use common::MockTeamRepo;
 use roseui_api_types::{
     TeamAgentRemovedPayload, TeamAgentRenamedPayload, TeamAgentSpawnedPayload, TeamAgentStatusPayload, WebSocketMessage,
 };
@@ -19,8 +21,6 @@ use roseui_team::types::{
 };
 use roseui_team::visibility::TeamVisibilityPolicy;
 use roseui_team::{Mailbox, TaskBoard, TeammateManager};
-use async_trait::async_trait;
-use common::MockTeamRepo;
 
 // ---------------------------------------------------------------------------
 // Test helpers

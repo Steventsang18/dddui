@@ -7,8 +7,11 @@ use axum::http::StatusCode;
 use serde_json::json;
 use tower::ServiceExt;
 
+use common::{
+    body_json, build_app_with_mock_agents_for_config, build_app_webui, get_request, get_with_token, setup_and_login,
+    webui_config,
+};
 use roseui_db::{ConversationRowUpdate, IConversationRepository};
-use common::{body_json, build_app, build_app_with_mock_agents, get_request, get_with_token, setup_and_login};
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -120,7 +123,7 @@ async fn upsert_artifact(services: &roseui_app::AppServices, artifact: roseui_db
 
 #[tokio::test]
 async fn t8_1_messages_empty() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let conv_id = create_conversation(&mut app, &token, &csrf, "Empty Conv").await;
 
@@ -142,7 +145,7 @@ async fn t8_1_messages_empty() {
 
 #[tokio::test]
 async fn t8_2_messages_pagination() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let conv_id = create_conversation(&mut app, &token, &csrf, "Paginated Conv").await;
 
@@ -189,7 +192,7 @@ async fn t8_2_messages_pagination() {
 
 #[tokio::test]
 async fn t8_2b_messages_compact_mode_truncates_large_tool_payload() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let conv_id = create_conversation(&mut app, &token, &csrf, "Compact Tool Conv").await;
     let large_output = "match line\n".repeat(10_000);
@@ -216,7 +219,7 @@ async fn t8_2b_messages_compact_mode_truncates_large_tool_payload() {
 
 #[tokio::test]
 async fn t8_2c_get_message_returns_full_tool_payload() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let conv_id = create_conversation(&mut app, &token, &csrf, "Tool Detail Conv").await;
     let large_output = "wide rg output\n".repeat(10_000);
@@ -244,7 +247,7 @@ async fn t8_2c_get_message_returns_full_tool_payload() {
 
 #[tokio::test]
 async fn t8_2d_get_message_requires_auth() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let conv_id = create_conversation(&mut app, &token, &csrf, "Tool Detail Auth Conv").await;
 
@@ -262,7 +265,7 @@ async fn t8_2d_get_message_requires_auth() {
 
 #[tokio::test]
 async fn t8_2e_get_message_not_found_returns_specific_error() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let conv_id = create_conversation(&mut app, &token, &csrf, "Tool Detail Missing Conv").await;
 
@@ -287,7 +290,7 @@ async fn t8_2e_get_message_not_found_returns_specific_error() {
 
 #[tokio::test]
 async fn t8_2f_get_message_does_not_leak_cross_user_conversation() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (owner_token, owner_csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let owner_conv_id = create_conversation(&mut app, &owner_token, &owner_csrf, "Owner Tool Conv").await;
     insert_acp_tool_message(&services, &owner_conv_id, "owner-tool", "private output", 1000).await;
@@ -317,7 +320,7 @@ async fn t8_2f_get_message_does_not_leak_cross_user_conversation() {
 
 #[tokio::test]
 async fn t8_3_messages_order_asc_default() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let conv_id = create_conversation(&mut app, &token, &csrf, "Order Test").await;
 
@@ -341,7 +344,7 @@ async fn t8_3_messages_order_asc_default() {
 
 #[tokio::test]
 async fn t8_4_messages_limit_returns_latest_window_in_ascending_order() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let conv_id = create_conversation(&mut app, &token, &csrf, "Limit Test").await;
 
@@ -366,7 +369,7 @@ async fn t8_4_messages_limit_returns_latest_window_in_ascending_order() {
 
 #[tokio::test]
 async fn t8_5_messages_conversation_not_found() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, _csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
     let resp = app
@@ -378,7 +381,7 @@ async fn t8_5_messages_conversation_not_found() {
 
 #[tokio::test]
 async fn t8_6_messages_requires_auth() {
-    let (app, _services) = build_app().await;
+    let (app, _services) = build_app_webui().await;
     let resp = app
         .oneshot(get_request("/api/conversations/some-id/messages"))
         .await
@@ -390,7 +393,7 @@ async fn t8_6_messages_requires_auth() {
 
 #[tokio::test]
 async fn t8_7_messages_exclude_legacy_cron_rows() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let conv_id = create_conversation(&mut app, &token, &csrf, "Legacy Filter").await;
 
@@ -453,7 +456,7 @@ async fn t8_7_messages_exclude_legacy_cron_rows() {
 
 #[tokio::test]
 async fn t8_8_artifacts_list_and_patch_status() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let conv_id = create_conversation(&mut app, &token, &csrf, "Artifacts").await;
     let artifact_id = format!("{conv_id}:skill_suggest:cron_1");
@@ -512,7 +515,7 @@ async fn t8_8_artifacts_list_and_patch_status() {
 
 #[tokio::test]
 async fn t9_1_search_keyword_match() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
     let conv_id = create_conversation(&mut app, &token, &csrf, "Search Conv").await;
@@ -532,7 +535,7 @@ async fn t9_1_search_keyword_match() {
 
 #[tokio::test]
 async fn t9_2_search_no_match() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
     let conv_id = create_conversation(&mut app, &token, &csrf, "No Match Conv").await;
@@ -549,7 +552,7 @@ async fn t9_2_search_no_match() {
 
 #[tokio::test]
 async fn t9_3_search_pagination() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
     let conv_id = create_conversation(&mut app, &token, &csrf, "Search Paged").await;
@@ -580,7 +583,7 @@ async fn t9_3_search_pagination() {
 
 #[tokio::test]
 async fn t9_4_search_empty_keyword() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, _csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
     let resp = app
@@ -592,7 +595,7 @@ async fn t9_4_search_empty_keyword() {
 
 #[tokio::test]
 async fn t9_5_search_requires_auth() {
-    let (app, _services) = build_app().await;
+    let (app, _services) = build_app_webui().await;
     let resp = app
         .oneshot(get_request("/api/messages/search?keyword=test"))
         .await
@@ -606,7 +609,7 @@ async fn t9_5_search_requires_auth() {
 
 #[tokio::test]
 async fn t12_4_search_sql_injection_safe() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, _csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
     let resp = app
@@ -626,7 +629,7 @@ async fn t12_4_search_sql_injection_safe() {
 
 #[tokio::test]
 async fn message_response_has_correct_fields() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
     let conv_id = create_conversation(&mut app, &token, &csrf, "Field Check").await;
@@ -660,7 +663,7 @@ async fn message_response_has_correct_fields() {
 
 #[tokio::test]
 async fn delete_conversation_cascades_messages() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
     let conv_id = create_conversation(&mut app, &token, &csrf, "Cascade Test").await;
@@ -692,7 +695,7 @@ async fn delete_conversation_cascades_messages() {
 
 #[tokio::test]
 async fn search_across_multiple_conversations() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
     let conv1 = create_conversation(&mut app, &token, &csrf, "Conv Alpha").await;
@@ -716,7 +719,7 @@ async fn search_across_multiple_conversations() {
 
 #[tokio::test]
 async fn t2_1_send_message_accepted() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let conv_id = create_conversation(&mut app, &token, &csrf, "Send Test").await;
 
@@ -752,7 +755,7 @@ async fn t2_1_send_message_accepted() {
 
 #[tokio::test]
 async fn t2_1_send_message_empty_content_bad_request() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let conv_id = create_conversation(&mut app, &token, &csrf, "Empty Content").await;
 
@@ -770,7 +773,7 @@ async fn t2_1_send_message_empty_content_bad_request() {
 
 #[tokio::test]
 async fn t2_1_send_message_conversation_not_found() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
     let body = json!({ "content": "Hello" });
@@ -781,7 +784,7 @@ async fn t2_1_send_message_conversation_not_found() {
 
 #[tokio::test]
 async fn t2_1b_send_message_legacy_workspace_with_whitespace_succeeds() {
-    let (mut app, services) = build_app_with_mock_agents().await;
+    let (mut app, services) = build_app_with_mock_agents_for_config(webui_config()).await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let conv_id = create_conversation(&mut app, &token, &csrf, "Legacy Workspace").await;
     let dir = tempfile::tempdir().unwrap();
@@ -803,7 +806,7 @@ async fn t2_1b_send_message_legacy_workspace_with_whitespace_succeeds() {
 
 #[tokio::test]
 async fn t2_1c_send_message_missing_workspace_persists_message_and_failure_tip() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let conv_id = create_conversation(&mut app, &token, &csrf, "Missing Workspace").await;
     update_conversation_workspace(&services, &conv_id, "/tmp/does-not-exist-for-message-e2e").await;
@@ -839,7 +842,7 @@ async fn t2_1c_send_message_missing_workspace_persists_message_and_failure_tip()
 
 #[tokio::test]
 async fn t2_1_send_message_requires_auth() {
-    let (app, _services) = build_app().await;
+    let (app, _services) = build_app_webui().await;
 
     let body = json!({ "content": "Hello" });
     let req = axum::http::Request::builder()
@@ -856,7 +859,7 @@ async fn t2_1_send_message_requires_auth() {
 
 #[tokio::test]
 async fn t2_2_stop_stream_conversation_not_found() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
     let req = common::json_with_token(
@@ -872,7 +875,7 @@ async fn t2_2_stop_stream_conversation_not_found() {
 
 #[tokio::test]
 async fn t2_2_stop_stream_requires_auth() {
-    let (app, _services) = build_app().await;
+    let (app, _services) = build_app_webui().await;
 
     let req = axum::http::Request::builder()
         .method("POST")
@@ -888,7 +891,7 @@ async fn t2_2_stop_stream_requires_auth() {
 
 #[tokio::test]
 async fn t2_3_runtime_ensure_conversation_not_found() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
     let req = common::json_with_token(
@@ -904,7 +907,7 @@ async fn t2_3_runtime_ensure_conversation_not_found() {
 
 #[tokio::test]
 async fn t2_3b_runtime_ensure_legacy_workspace_with_whitespace_succeeds() {
-    let (mut app, services) = build_app_with_mock_agents().await;
+    let (mut app, services) = build_app_with_mock_agents_for_config(webui_config()).await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
     let conv_id = create_conversation(&mut app, &token, &csrf, "Runtime Ensure").await;
     let dir = tempfile::tempdir().unwrap();

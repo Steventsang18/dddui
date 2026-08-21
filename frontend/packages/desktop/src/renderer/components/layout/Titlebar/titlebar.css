@@ -17,6 +17,19 @@
   -webkit-app-region: drag;
 }
 
+/* Tauri 窗口拖拽区：铺在标题栏最底层，交互元素叠在其上不受影响 */
+.app-titlebar__drag-region {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.app-titlebar--desktop .app-titlebar__menu,
+.app-titlebar--desktop .app-titlebar__toolbar {
+  position: relative;
+  z-index: 1;
+}
+
 .app-titlebar--mobile {
   height: 48px;
   min-height: 48px;

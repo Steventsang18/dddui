@@ -17,6 +17,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use futures_util::StreamExt;
 use roseui_api_types::{
     AgentEnvEntry, AgentHandshake, AgentManagementRow, AgentManagementStatus, AgentMetadata, AgentSnapshotCheckKind,
     AgentSnapshotCheckStatus, AgentSource, AgentSourceInfo, BehaviorPolicy,
@@ -24,7 +25,6 @@ use roseui_api_types::{
 use roseui_common::{AgentType, now_ms};
 use roseui_db::{AgentMetadataRow, IAgentMetadataRepository, UpdateAgentHandshakeParams};
 use roseui_runtime::{RuntimeCommandProbe, probe_node_runtime_supported, probe_runtime_command, resolve_command_path};
-use futures_util::StreamExt;
 use serde_json::{Value, json};
 use tokio::sync::{RwLock, mpsc};
 use tracing::{debug, info, warn};

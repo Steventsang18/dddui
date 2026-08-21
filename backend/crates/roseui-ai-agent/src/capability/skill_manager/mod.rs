@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, LazyLock};
 
-use roseui_db::ISkillRepository;
 use regex::Regex;
+use roseui_db::ISkillRepository;
 use tokio::sync::RwLock;
 use tracing::{debug, warn};
 

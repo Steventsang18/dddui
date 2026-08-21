@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use roseui_api_types::WebSocketMessage;
 use roseui_db::models::MessageRow;
 use roseui_realtime::EventBroadcaster;
-use async_trait::async_trait;
 use tracing::info;
 
 use crate::error::TeamError;

@@ -12,11 +12,12 @@ mod common;
 
 use std::sync::Arc;
 
+use axum::http::StatusCode;
 use roseui_api_types::{
     AgentManagementRow, AgentManagementStatus, AgentSnapshotCheckKind, AgentSnapshotCheckStatus, AgentSource,
     AgentSourceInfo, BehaviorPolicy,
 };
-use roseui_app::{AppConfig, AppServices, ModuleStates, build_module_states, create_router_with_states};
+use roseui_app::{AppServices, ModuleStates, build_module_states, create_router_with_states};
 use roseui_assistant::{AssistantAgentCatalogPort, AssistantRouterState, AssistantService, BuiltinAssistantRegistry};
 use roseui_common::AgentType;
 use roseui_db::{
@@ -30,12 +31,11 @@ use roseui_extension::{
     AssistantRuleDispatcher, ExtensionRegistry, ExtensionRouterState, ExtensionSource, ExtensionStateStore,
     ExternalPathsManager, HubIndexManager, HubInstaller, HubRouterState, ScanPath, SkillPaths, SkillRouterState,
 };
-use axum::http::StatusCode;
 use serde_json::{Value, json};
 use tempfile::TempDir;
 use tower::ServiceExt;
 
-use common::{body_json, delete_with_token, get_with_token, json_with_token, setup_and_login};
+use common::{body_json, delete_with_token, get_with_token, json_with_token, setup_and_login, webui_config};
 
 const DEFAULT_USER_ID: &str = "system_default_user";
 
@@ -215,7 +215,7 @@ async fn fixture() -> Fixture {
 
     // Bring up in-memory DB + services + default module states.
     let db = init_database_memory().await.unwrap();
-    let services = AppServices::from_config(db, &AppConfig::default()).await.unwrap();
+    let services = AppServices::from_config(db, &webui_config()).await.unwrap();
     let (mut states, _): (ModuleStates, _) = build_module_states(&services).await.expect("build module states");
     for table in [
         "assistant_preferences",

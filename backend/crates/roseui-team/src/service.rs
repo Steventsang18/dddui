@@ -6,6 +6,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock, Weak};
 
+use dashmap::DashMap;
 use roseui_ai_agent::{ActiveLeaseRegistry, AgentError, AgentInstance, IWorkerTaskManager, IdleCleanupCoordinator};
 use roseui_api_types::ChatFileRef;
 use roseui_api_types::{
@@ -22,7 +23,6 @@ use roseui_db::{
 };
 use roseui_project::{ProjectService, canonical};
 use roseui_realtime::EventBroadcaster;
-use dashmap::DashMap;
 use tracing::{debug, info, warn};
 
 use crate::error::TeamError;

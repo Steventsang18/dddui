@@ -10,8 +10,8 @@ use roseui_db::{IConversationRepository, SqliteConversationRepository, init_data
 use serde_json::json;
 use sqlx::Row;
 
-use crate::stream_persistence::{StreamPersistenceAdapter, TextSegmentState};
 use crate::service_test::seed_test_user;
+use crate::stream_persistence::{StreamPersistenceAdapter, TextSegmentState};
 
 async fn seed_conversation(pool: &sqlx::SqlitePool, user_id: &str, conv_id: &str) {
     let repo = SqliteConversationRepository::new(pool.clone());
@@ -44,13 +44,7 @@ async fn persist_tool_call_writes_session_event_with_redaction() {
     seed_conversation(db.pool(), user_id, conv_id).await;
 
     let repo = Arc::new(SqliteConversationRepository::new(db.pool().clone()));
-    let adapter = StreamPersistenceAdapter::new(
-        user_id.to_owned(),
-        conv_id.to_owned(),
-        "msg-1".to_owned(),
-        repo,
-        None,
-    );
+    let adapter = StreamPersistenceAdapter::new(user_id.to_owned(), conv_id.to_owned(), "msg-1".to_owned(), repo, None);
 
     // 模拟一次工具调用，input 含敏感字段 api_key
     let tool_data = ToolCallEventData {
@@ -92,11 +86,12 @@ async fn persist_tool_call_writes_session_event_with_redaction() {
     assert_eq!(api_key, "***", "敏感字段名命中时应整体遮蔽为 ***");
 
     // 同时 messages 表也应有 tool_call 行（既有行为不被破坏）
-    let msg_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM messages WHERE conversation_id = ? AND type = 'tool_call'")
-        .bind(conv_id)
-        .fetch_one(db.pool())
-        .await
-        .unwrap();
+    let msg_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM messages WHERE conversation_id = ? AND type = 'tool_call'")
+            .bind(conv_id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
     assert_eq!(msg_count, 1, "既有 messages 落库行为应保持");
 }
 
@@ -124,13 +119,12 @@ async fn insert_session_event_model_call_persists() {
     };
     repo.insert_session_event(user_id, &event).await.unwrap();
 
-    let row = sqlx::query(
-        "SELECT event_kind, model, token_usage_json, status FROM session_events WHERE conversation_id = ?",
-    )
-    .bind(conv_id)
-    .fetch_one(db.pool())
-    .await
-    .unwrap();
+    let row =
+        sqlx::query("SELECT event_kind, model, token_usage_json, status FROM session_events WHERE conversation_id = ?")
+            .bind(conv_id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
     assert_eq!(row.get::<String, _>("event_kind"), "model_call");
     assert_eq!(row.get::<String, _>("model"), "claude-sonnet-4");
     assert_eq!(row.get::<String, _>("token_usage_json"), "{\"duration_ms\":1234}");
@@ -146,13 +140,7 @@ async fn flush_text_segment_writes_text_session_event() {
     seed_conversation(db.pool(), user_id, conv_id).await;
 
     let repo = Arc::new(SqliteConversationRepository::new(db.pool().clone()));
-    let adapter = StreamPersistenceAdapter::new(
-        user_id.to_owned(),
-        conv_id.to_owned(),
-        "msg-2".to_owned(),
-        repo,
-        None,
-    );
+    let adapter = StreamPersistenceAdapter::new(user_id.to_owned(), conv_id.to_owned(), "msg-2".to_owned(), repo, None);
 
     let mut seg = TextSegmentState {
         id: "seg-1".to_owned(),
@@ -198,9 +186,15 @@ async fn list_session_events_filters_by_kind_model_and_range() {
         created_at: ts,
     };
     // 3 条：两个 model_call（不同模型/时间），一个 tool_call
-    repo.insert_session_event(user_id, &make("e1", "model_call", "claude-sonnet-4", 1000, 1)).await.unwrap();
-    repo.insert_session_event(user_id, &make("e2", "tool_call", "claude-sonnet-4", 2000, 2)).await.unwrap();
-    repo.insert_session_event(user_id, &make("e3", "model_call", "gpt-4o", 3000, 3)).await.unwrap();
+    repo.insert_session_event(user_id, &make("e1", "model_call", "claude-sonnet-4", 1000, 1))
+        .await
+        .unwrap();
+    repo.insert_session_event(user_id, &make("e2", "tool_call", "claude-sonnet-4", 2000, 2))
+        .await
+        .unwrap();
+    repo.insert_session_event(user_id, &make("e3", "model_call", "gpt-4o", 3000, 3))
+        .await
+        .unwrap();
 
     // 全量：按 turn_seq 升序返回 3 条
     let all = repo
@@ -239,7 +233,11 @@ async fn list_session_events_filters_by_kind_model_and_range() {
         .await
         .unwrap();
     assert_eq!(only_sonnet.len(), 2);
-    assert!(only_sonnet.iter().all(|e| e.model.as_deref() == Some("claude-sonnet-4")));
+    assert!(
+        only_sonnet
+            .iter()
+            .all(|e| e.model.as_deref() == Some("claude-sonnet-4"))
+    );
 
     // 按时间范围过滤（仅 1000~2000）
     let ranged = repo

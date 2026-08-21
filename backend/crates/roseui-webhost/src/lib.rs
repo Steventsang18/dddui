@@ -14,10 +14,9 @@ use std::path::PathBuf;
 
 use axum::Router;
 use axum::body::Body;
-use axum::extract::Path;
+use axum::extract::Request;
 use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
 use rust_embed::RustEmbed;
 use sha2::{Digest, Sha256};
 
@@ -40,17 +39,15 @@ const CACHE_CONTROL_NO_CACHE: &str = "no-cache";
 /// - `static_dir = None`：使用编译期内嵌的前端产物。
 pub fn webhost_routes(static_dir: Option<PathBuf>) -> Router {
     match static_dir {
-        Some(dir) => {
-            let dir_route = dir.clone();
-            let dir_fallback = dir;
-            Router::new()
-                .route("/{*path}", get(move |p: Path<String>| serve_disk_file(dir_route.clone(), p)))
-                .fallback(move || serve_disk_index(dir_fallback))
-        }
-        None => Router::new()
-            .route("/{*path}", get(serve_embedded_asset))
-            .fallback(serve_index_html),
+        Some(dir) => Router::new().fallback(move |req: Request| serve_disk_spa(dir.clone(), req)),
+        None => Router::new().fallback(serve_embedded_spa),
     }
+}
+
+/// 未注册的 `/api/*` 请求统一返回 404，避免被 SPA fallback 吞成 index.html。
+/// API 客户端依赖 404 判断"路由不存在"；SPA 前端路由（非 /api）不受影响。
+fn is_api_path(path: &str) -> bool {
+    path == "/api" || path.starts_with("/api/")
 }
 
 fn content_type_for_path(path: &str) -> HeaderValue {
@@ -63,8 +60,16 @@ fn build_etag(bytes: &[u8]) -> HeaderValue {
     HeaderValue::from_str(&format!("\"{digest:x}\"")).unwrap_or_else(|_| HeaderValue::from_static("\"\""))
 }
 
-async fn serve_embedded_asset(Path(path): Path<String>) -> Response {
-    let rel = if path.is_empty() { "index.html" } else { path.trim_start_matches('/') };
+async fn serve_embedded_spa(req: Request) -> Response {
+    let path = req.uri().path();
+    if is_api_path(path) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let rel = if path.is_empty() {
+        "index.html"
+    } else {
+        path.trim_start_matches('/')
+    };
     match FrontendAssets::get(rel) {
         Some(file) => {
             let bytes = file.data.into_owned();
@@ -88,7 +93,10 @@ async fn serve_index_html() -> Response {
             let bytes = file.data.into_owned();
             Response::builder()
                 .status(StatusCode::OK)
-                .header(header::CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"))
+                .header(
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_static("text/html; charset=utf-8"),
+                )
                 .header(header::CACHE_CONTROL, CACHE_CONTROL_NO_CACHE)
                 .body(Body::from(bytes))
                 .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
@@ -97,13 +105,21 @@ async fn serve_index_html() -> Response {
     }
 }
 
-async fn serve_disk_file(dir: PathBuf, Path(path): Path<String>) -> Response {
-    let rel = if path.is_empty() { "index.html" } else { path.trim_start_matches('/') };
+async fn serve_disk_spa(dir: PathBuf, req: Request) -> Response {
+    let path = req.uri().path();
+    if is_api_path(path) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let rel = if path.is_empty() {
+        "index.html"
+    } else {
+        path.trim_start_matches('/')
+    };
     let full = dir.join(sanitize(rel));
     match tokio::fs::read(&full).await {
-        Ok(bytes) =>             Response::builder()
-                .status(StatusCode::OK)
-                .header(header::CONTENT_TYPE, content_type_for_path(rel))
+        Ok(bytes) => Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, content_type_for_path(rel))
             .header(header::CACHE_CONTROL, CACHE_CONTROL_IMMUTABLE)
             .body(Body::from(bytes))
             .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response()),
@@ -116,7 +132,10 @@ async fn serve_disk_index(dir: PathBuf) -> Response {
     match tokio::fs::read(&full).await {
         Ok(bytes) => Response::builder()
             .status(StatusCode::OK)
-            .header(header::CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"))
+            .header(
+                header::CONTENT_TYPE,
+                HeaderValue::from_static("text/html; charset=utf-8"),
+            )
             .header(header::CACHE_CONTROL, CACHE_CONTROL_NO_CACHE)
             .body(Body::from(bytes))
             .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response()),
@@ -156,7 +175,12 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(res.status(), StatusCode::OK);
-        assert!(res.headers()[header::CONTENT_TYPE].to_str().unwrap().contains("text/html"));
+        assert!(
+            res.headers()[header::CONTENT_TYPE]
+                .to_str()
+                .unwrap()
+                .contains("text/html")
+        );
     }
 
     #[tokio::test]
@@ -164,11 +188,21 @@ mod tests {
         let router = webhost_routes(None);
         let res = router
             .clone()
-            .oneshot(Request::builder().uri("/guid/some-deep-route").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/guid/some-deep-route")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(res.status(), StatusCode::OK);
-        assert!(res.headers()[header::CONTENT_TYPE].to_str().unwrap().contains("text/html"));
+        assert!(
+            res.headers()[header::CONTENT_TYPE]
+                .to_str()
+                .unwrap()
+                .contains("text/html")
+        );
     }
 
     #[test]

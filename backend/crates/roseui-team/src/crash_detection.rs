@@ -4,8 +4,8 @@
 //! `TeammateStatus::Failed` without going through crash recovery (no kill,
 //! no testament) — see interface-contracts §23.
 
-use roseui_ai_agent::protocol::events::AgentStreamEvent;
 use regex::Regex;
+use roseui_ai_agent::protocol::events::AgentStreamEvent;
 use std::sync::OnceLock;
 
 fn rate_limit_regex() -> &'static Regex {

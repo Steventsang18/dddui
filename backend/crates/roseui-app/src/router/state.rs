@@ -30,8 +30,8 @@ use roseui_extension::{
 };
 use roseui_file::{BrowseRoots, FileRouterState, FileService, FileWatchService, SnapshotService};
 use roseui_mcp::{
-    AionrsAdapter, RoseuiAdapter, ClaudeAdapter, CodeBuddyAdapter, CodexAdapter, GeminiAdapter, McpAgentAdapter,
-    McpConfigService, McpConnectionTestService, McpRouterState, McpSyncService, OpencodeAdapter, QwenAdapter,
+    AionrsAdapter, ClaudeAdapter, CodeBuddyAdapter, CodexAdapter, GeminiAdapter, McpAgentAdapter, McpConfigService,
+    McpConnectionTestService, McpRouterState, McpSyncService, OpencodeAdapter, QwenAdapter, RoseuiAdapter,
 };
 use roseui_office::{
     ConversionService, OfficeRouterState, OfficecliWatchManager, ProxyService, SnapshotService as OfficeSnapshotService,
@@ -331,7 +331,9 @@ pub async fn build_module_states(
         office: build_module_state_phase(&boot, "office", || build_office_state(services)),
         shell: build_module_state_phase(&boot, "shell", || build_shell_state(services)),
         assistant,
-        wiki: build_module_state_phase(&boot, "wiki", || build_wiki_state(services.database.pool().clone(), services.data_dir.clone())),
+        wiki: build_module_state_phase(&boot, "wiki", || {
+            build_wiki_state(services.database.pool().clone(), services.data_dir.clone())
+        }),
     };
     tracing::info!(
         elapsed_ms = boot.elapsed().as_millis(),
@@ -994,7 +996,7 @@ mod tests {
     }
 
     use crate::AppConfig;
-    use roseui_ai_agent::types::{ROSEUI_BASE_URL_ENV, ROSEUI_HELPER_BIN_ENV, BuildTaskOptions, SendMessageData};
+    use roseui_ai_agent::types::{BuildTaskOptions, ROSEUI_BASE_URL_ENV, ROSEUI_HELPER_BIN_ENV, SendMessageData};
     use roseui_ai_agent::{
         AgentError, AgentInstance, AgentSendError, AgentStreamEvent, IAgentTask, IMockAgent, IWorkerTaskManager,
         WorkerTaskManagerImpl,
@@ -1141,7 +1143,13 @@ mod tests {
     #[tokio::test]
     async fn build_ws_state_rejects_stale_session_generation() {
         let db = roseui_db::init_database_memory().await.unwrap();
-        let services = AppServices::from_config(db, &AppConfig::default()).await.unwrap();
+        // Owner 模式（默认）is_local()=true，build_ws_state 会绕过 generation 校验；
+        // 用 WebUi 模式才能真正测到 stale session 拒绝路径（system_default_user 由 M6 seed 提供）。
+        let config = AppConfig {
+            identity_mode: IdentityMode::WebUi,
+            ..AppConfig::default()
+        };
+        let services = AppServices::from_config(db, &config).await.unwrap();
         let ws_state = build_ws_state(&services, std::sync::Arc::new(roseui_realtime::NoopMessageRouter));
         let token = services
             .jwt_service

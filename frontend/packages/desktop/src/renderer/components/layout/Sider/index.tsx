@@ -4,6 +4,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button, Message, Modal } from '@arco-design/web-react';
 import { usePreviewContext } from '@renderer/pages/conversation/Preview/context/PreviewContext';
+import { getBaseUrl } from '@/common/adapter/httpBridge';
+import { exitTauriApp, isTauriDesktop } from '@renderer/utils/platform';
 import { cleanupSiderTooltips, getSiderTooltipProps } from '@renderer/utils/ui/siderTooltip';
 import { useAuth } from '@renderer/hooks/context/AuthContext';
 import { useLayoutContext } from '@renderer/hooks/context/LayoutContext';
@@ -154,7 +156,16 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
 
   const handleExitProcess = useCallback(() => {
     setLogoutChoiceOpen(false);
-    void fetch('/api/system/shutdown', {
+    if (isTauriDesktop()) {
+      // Tauri 壳下直接退出整个应用：壳的 Exit 事件会干净停掉 sidecar。
+      // 若 POST /api/system/shutdown，watchdog 会把后端当崩溃重启。
+      Message.success(
+        t('settings.exitRoseUiSuccess', { defaultValue: 'DoDidDoneUi is shutting down.' })
+      );
+      void exitTauriApp();
+      return;
+    }
+    void fetch(`${getBaseUrl()}/api/system/shutdown`, {
       method: 'POST',
       headers: { 'X-Requested-With': 'roseui' },
     })

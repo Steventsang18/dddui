@@ -4,6 +4,7 @@ import AppLoader from '@renderer/components/layout/AppLoader';
 import { useAuth } from '@renderer/hooks/context/AuthContext';
 import { useProvidersQuery } from '@renderer/hooks/agent/useModelProviderList';
 import { TEAM_MODE_ENABLED } from '@/common/config/constants';
+import { isDesktopShell } from '@renderer/utils/platform';
 const Conversation = React.lazy(() => import('@renderer/pages/conversation'));
 const Guid = React.lazy(() => import('@renderer/pages/guid'));
 const AgentSettings = React.lazy(() => import('@renderer/pages/settings/AgentSettings'));
@@ -36,6 +37,12 @@ const withRouteFallback = (Component: React.LazyExoticComponent<React.ComponentT
   </Suspense>
 );
 
+// 桌面壳（Electron / Tauri）后端以 --local 模式运行，没有账号体系：
+// 登录路由不注册，未认证守卫也不跳登录页，从入口根除登录界面。
+// Desktop shells run the backend with --local (no accounts); the login
+// screen is removed at the routing level entirely.
+const DESKTOP_NO_LOGIN = isDesktopShell();
+
 /**
  * Legacy `/settings/capabilities?tab=tools` deep links now map to the standalone
  * Tools page; everything else (skills tab or no tab) lands on the Skills page.
@@ -63,7 +70,8 @@ const ProtectedLayout: React.FC<{ layout: React.ReactElement }> = ({ layout }) =
   }
 
   if (status !== 'authenticated') {
-    return <Navigate to='/login' replace />;
+    // 桌面壳免登录：即使 AuthContext 短路失效也不落入登录页。
+    return DESKTOP_NO_LOGIN ? React.cloneElement(layout) : <Navigate to='/login' replace />;
   }
 
   return React.cloneElement(layout);
@@ -77,7 +85,13 @@ const PanelRoute: React.FC<{ layout: React.ReactElement }> = ({ layout }) => {
       <Routes>
         <Route
           path='/login'
-          element={status === 'authenticated' ? <Navigate to='/guid' replace /> : withRouteFallback(LoginPage)}
+          element={
+            status === 'authenticated' || DESKTOP_NO_LOGIN ? (
+              <Navigate to='/guid' replace />
+            ) : (
+              withRouteFallback(LoginPage)
+            )
+          }
         />
         <Route path='/landing' element={withRouteFallback(Landing)} />
         <Route path='/setup' element={withRouteFallback(Setup)} />
@@ -126,7 +140,10 @@ const PanelRoute: React.FC<{ layout: React.ReactElement }> = ({ layout }) => {
           <Route path='/scheduled' element={withRouteFallback(ScheduledTasksPage)} />
           <Route path='/scheduled/:job_id' element={withRouteFallback(TaskDetailPage)} />
         </Route>
-        <Route path='*' element={<Navigate to={status === 'authenticated' ? '/guid' : '/landing'} replace />} />
+        <Route
+          path='*'
+          element={<Navigate to={status === 'authenticated' || DESKTOP_NO_LOGIN ? '/guid' : '/landing'} replace />}
+        />
       </Routes>
     </HashRouter>
   );

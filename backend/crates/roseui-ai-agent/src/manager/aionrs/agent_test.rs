@@ -41,6 +41,9 @@ fn make_test_config() -> AionrsResolvedConfig {
         bedrock_config: None,
         runtime_env: Vec::new(),
         prompt_dump_dir: None,
+        industry_system_prompt: None,
+        industry_safety: None,
+        industry_profile: None,
     }
 }
 
@@ -330,12 +333,10 @@ async fn runtime_can_emit_error_and_finish() {
     agent.runtime.emit_error("test error");
     // emit_error sets status to Finished, so emit_finish is a no-op here.
     // We emit directly for the Finish broadcast path test:
-    agent
-        .runtime
-        .emit(AgentStreamEvent::Finish(FinishEventData {
-            session_id: None,
-            ..Default::default()
-        }));
+    agent.runtime.emit(AgentStreamEvent::Finish(FinishEventData {
+        session_id: None,
+        ..Default::default()
+    }));
 
     match rx.try_recv().unwrap() {
         AgentStreamEvent::Error(data) => assert_eq!(data.message, "test error"),

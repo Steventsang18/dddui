@@ -9,10 +9,10 @@ mod common;
 
 use std::sync::Arc;
 
+use axum::http::StatusCode;
 use roseui_app::{ModuleStates, build_module_states, create_router_with_states};
 use roseui_db::init_database_memory;
 use roseui_extension::{ExternalPathsManager, SkillPaths, SkillRouterState};
-use axum::http::StatusCode;
 use serde_json::{Value, json};
 use tempfile::TempDir;
 use tower::ServiceExt;
@@ -55,7 +55,7 @@ async fn fixture_embedded() -> Fixture {
         .expect("failed to materialize embedded builtin skills for test fixture");
 
     let db = init_database_memory().await.unwrap();
-    let services = roseui_app::AppServices::from_config(db, &roseui_app::AppConfig::default())
+    let services = roseui_app::AppServices::from_config(db, &common::webui_config())
         .await
         .unwrap();
     let (mut states, _): (ModuleStates, _) = build_module_states(&services).await.expect("build module states");

@@ -2,11 +2,11 @@ mod common;
 
 use std::sync::Arc;
 
+use common::MockTeamRepo;
 use roseui_api_types::WebSocketMessage;
 use roseui_realtime::EventBroadcaster;
 use roseui_team::mcp::protocol::{read_frame, write_frame};
 use roseui_team::{Mailbox, TaskBoard, TeamAgent, TeamMcpServer, TeamPromptDumpConfig, TeammateManager, TeammateRole};
-use common::MockTeamRepo;
 use serde_json::{Value, json};
 use tokio::net::TcpStream;
 

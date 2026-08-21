@@ -316,8 +316,7 @@ async fn execute_and_finalize(ctx: &AgentLoopContext, batch: WorkBatch, input: W
     let terminal_status = if outcome.status.is_success() {
         let (committed, ready) = ctx.session.work_coordinator().complete_dag_batch(&batch);
         ctx.session.dispatch_dag_ready(ready).await;
-        (committed == CommitResult::Committed)
-            .then_some(TeamRunStatus::Completed)
+        (committed == CommitResult::Committed).then_some(TeamRunStatus::Completed)
     } else {
         let (committed, ready) = ctx.session.work_coordinator().fail_dag_batch(&batch, "turn_failed");
         ctx.session.dispatch_dag_ready(ready).await;

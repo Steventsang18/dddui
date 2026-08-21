@@ -12,8 +12,8 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use roseui_app::{AppConfig, AppServices, create_router};
 use futures_util::{SinkExt, StreamExt};
+use roseui_app::{AppServices, create_router};
 use serde_json::{Value, json};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::tungstenite::{self, Message};
@@ -39,7 +39,7 @@ struct TestApp {
 
 async fn start_app() -> TestApp {
     let db = roseui_db::init_database_memory().await.unwrap();
-    let services = AppServices::from_config(db, &AppConfig::default()).await.unwrap();
+    let services = AppServices::from_config(db, &common::webui_config()).await.unwrap();
     let router = create_router(&services).await.expect("build router");
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

@@ -8,6 +8,7 @@ import { ipcBridge } from '@/common';
 import { isErrorTipMessage, normalizeTextMessageContent, transformMessage } from '@/common/chat/chatLib';
 import type { AvailableCommand, TMessage } from '@/common/chat/chatLib';
 import { mapAcpCommandsToSlashCommands } from '@/common/chat/slash/acpMapping';
+import { getBaseUrl } from '@/common/adapter/httpBridge';
 import type { SlashCommandItem } from '@/common/chat/slash/types';
 import type { IResponseMessage } from '@/common/adapter/ipcBridge';
 import type { TokenUsageBreakdown, TokenUsageData } from '@/common/config/storage';
@@ -382,7 +383,7 @@ export const useAcpMessage = (
               );
               // 上报 model_call 轨迹事件（日期时刻+模型+耗时），供对话轨迹回放查询。
               // 同源 POST，Owner 模式下无需额外鉴权头。
-              fetch(`/api/conversations/${conversation_id}/trace-event`, {
+              fetch(`${getBaseUrl()}/api/conversations/${conversation_id}/trace-event`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

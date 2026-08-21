@@ -2,13 +2,13 @@ mod common;
 
 use std::sync::Arc;
 
+use common::MockTeamRepo;
 use roseui_api_types::WebSocketMessage;
 use roseui_realtime::EventBroadcaster;
 use roseui_team::{
     Mailbox, MailboxMessageType, SchedulerAction, TaskBoard, TeamAgent, TeammateManager, TeammateRole, TeammateStatus,
     WAKE_TIMEOUT_MS,
 };
-use common::MockTeamRepo;
 
 // ---------------------------------------------------------------------------
 // Test infrastructure

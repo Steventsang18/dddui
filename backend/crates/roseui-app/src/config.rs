@@ -189,6 +189,9 @@ mod tests {
             data_dir: PathBuf::from("/tmp/roseui"),
             ..Default::default()
         };
-        assert_eq!(config.database_path(), PathBuf::from("/tmp/roseui/dodiddoneui-backend.db"));
+        assert_eq!(
+            config.database_path(),
+            PathBuf::from("/tmp/roseui/dodiddoneui-backend.db")
+        );
     }
 }

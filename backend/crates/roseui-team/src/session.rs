@@ -18,8 +18,6 @@ use crate::event_loop::EventLoopRegistry;
 use crate::events::{TEAM_CHILD_TURN_CANCELLED_EVENT, TeamEventEmitter};
 use crate::mailbox::Mailbox;
 use crate::mcp::{TeamMcpServer, TeamMcpStdioConfig, TeamMcpStdioServerSpec};
-use roseui_api_types::WikiMcpStdioConfig;
-use crate::work_coordinator::dag::{DagError, WorkflowDef};
 use crate::member_runtime::{
     AttachLease, AttachOutcome, BeginRemove, MemberRuntimeFailure, MemberRuntimeRegistry, MemberRuntimeSnapshot,
     ReserveAttach,
@@ -39,11 +37,13 @@ use crate::service::TeamSessionService;
 use crate::task_board::TaskBoard;
 use crate::team_run::{TeamRunManager, target_role_for};
 use crate::types::{MailboxMessageType, Team, TeamAgent, TeammateRole, TeammateStatus};
+use crate::work_coordinator::dag::{DagError, WorkflowDef};
 use crate::work_coordinator::{
     CausalBinding, CommitResult, EnqueueCommit, EnqueueDisposition, EnqueueLease, EnqueueRequest, ReconcileDecision,
     RuntimeConstraint, SlotWorkCoordinator, WorkBatch,
 };
 use crate::work_source::WorkSource;
+use roseui_api_types::WikiMcpStdioConfig;
 
 /// Input for the wake path. Produced by [`TeamSession::compute_wake_input`],
 /// consumed by D7b's `send_message` / `send_message_to_agent` (not implemented

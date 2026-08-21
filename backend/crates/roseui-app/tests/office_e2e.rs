@@ -44,7 +44,7 @@ async fn build_office_app_with_roots(
     let config = AppConfig {
         data_dir: data_dir.clone(),
         work_dir: data_dir,
-        ..Default::default()
+        ..common::webui_config()
     };
     let services = AppServices::from_config(db, &config).await.unwrap();
     let (mut states, _) = build_module_states(&services).await.expect("build module states");

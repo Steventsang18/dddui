@@ -5,18 +5,18 @@
 
 use std::sync::Arc;
 
-use roseui_realtime::BroadcastEventBus;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
+use roseui_realtime::BroadcastEventBus;
 use serde_json::json;
 use tower::ServiceExt;
 use wiremock::matchers::{header, method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use roseui_db::{
-    SqliteClientPreferenceRepository, SqliteFeedbackDiagnosticsRepository, SqliteProviderRepository,
-    SqliteSettingsRepository, init_database_memory,
+    SqliteClientPreferenceRepository, SqliteFeedbackDiagnosticsRepository, SqliteIndustryTemplateRepository,
+    SqliteProviderRepository, SqliteSettingsRepository, init_database_memory,
 };
 use roseui_system::{
     ClientPrefService, FeedbackDiagnosticsService, ModelFetchService, ProtocolDetectionService, ProviderService,
@@ -43,6 +43,7 @@ fn build_state(db: &roseui_db::Database) -> SystemRouterState {
         feedback_diagnostics_service: FeedbackDiagnosticsService::new(Arc::new(
             SqliteFeedbackDiagnosticsRepository::new(db.pool().clone()),
         )),
+        industry_template_repo: Arc::new(SqliteIndustryTemplateRepository::new(db.pool().clone())),
     }
 }
 

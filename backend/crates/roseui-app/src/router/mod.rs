@@ -3,8 +3,8 @@
 mod fs_monitor;
 mod health;
 mod routes;
-mod shutdown;
 mod runtime_team_tools;
+mod shutdown;
 mod state;
 mod team_conversation_adapters;
 mod trace;

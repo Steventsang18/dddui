@@ -96,6 +96,13 @@ fn make_factory(
     })
 }
 
+/// 创建并返回测试工作区目录（Rupoo TaskRepo 需要目录已存在才能建库）。
+fn test_workspace_dir() -> String {
+    let dir = std::env::temp_dir().join("roseui-factory-test-workspace");
+    std::fs::create_dir_all(&dir).expect("failed to create test workspace dir");
+    dir.to_string_lossy().into_owned()
+}
+
 fn make_aionrs_options(
     conversation_id: &str,
     workspace: &str,
@@ -163,7 +170,7 @@ async fn aionrs_factory_resolves_provider_from_db() {
 
     let options = make_aionrs_options(
         "conv-test-2",
-        "/tmp/test-workspace",
+        &test_workspace_dir(),
         ProviderWithModel {
             provider_id: "prov-001".into(),
             model: "gpt-4o".into(),
@@ -184,7 +191,7 @@ async fn aionrs_factory_respects_use_model_override() {
 
     let options = make_aionrs_options(
         "conv-test-3",
-        "/tmp/test-workspace",
+        &test_workspace_dir(),
         ProviderWithModel {
             provider_id: "prov-002".into(),
             model: "gpt-4o".into(),

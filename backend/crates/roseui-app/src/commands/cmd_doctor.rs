@@ -22,8 +22,7 @@ use std::sync::Arc;
 
 use roseui_ai_agent::{AgentRegistry, UnavailableReason};
 use roseui_db::{
-    IAgentMetadataRepository, SqliteAgentMetadataRepository, SqlitePool, init_database,
-    maybe_copy_legacy_database,
+    IAgentMetadataRepository, SqliteAgentMetadataRepository, SqlitePool, init_database, maybe_copy_legacy_database,
 };
 use roseui_runtime::doctor_snapshot;
 
@@ -75,16 +74,14 @@ fn doctor_database_error() -> CliBoundaryError {
 /// FTS5 every wiki search/insert would fail at runtime. We surface it here so
 /// `dodiddoneui doctor` reports the problem before the user ever hits it.
 async fn check_fts5(pool: &SqlitePool) -> Result<(), CliBoundaryError> {
-    let has_fts5 = roseui_db::sqlite_has_fts5(pool)
-        .await
-        .map_err(|e| {
-            CliBoundaryError::new(
-                CliBoundaryCode::CliDoctorDatabaseFailed,
-                SUBCOMMAND,
-                "doctor failed to read sqlite compile_options",
-            )
-            .with_field("detail", e.to_string())
-        })?;
+    let has_fts5 = roseui_db::sqlite_has_fts5(pool).await.map_err(|e| {
+        CliBoundaryError::new(
+            CliBoundaryCode::CliDoctorDatabaseFailed,
+            SUBCOMMAND,
+            "doctor failed to read sqlite compile_options",
+        )
+        .with_field("detail", e.to_string())
+    })?;
 
     println!("  sqlite fts5    : {}", if has_fts5 { "available" } else { "MISSING" });
 

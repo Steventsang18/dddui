@@ -1,30 +1,30 @@
 //! `SessionAgentTask` — adapts the clean-slate `roseui_session::SessionBackend`
 //! (direct-CLI actor model for claude/codex) to origin's `IAgentTask` contract.
 
-mod constants;
-mod runtime;
 mod build;
 mod catalog;
-mod pump;
+mod constants;
 mod persist;
+mod pump;
+mod runtime;
 mod translate;
 
-pub(crate) use constants::*;
-pub(crate) use runtime::*;
 pub(crate) use build::*;
 pub(crate) use catalog::*;
-pub(crate) use pump::*;
+pub(crate) use constants::*;
 pub(crate) use persist::*;
+pub(crate) use pump::*;
+pub(crate) use runtime::*;
 pub(crate) use translate::*;
 
 pub(crate) use std::sync::Arc;
 pub(crate) use std::sync::atomic::{AtomicI64, Ordering};
 
+pub(crate) use futures_util::stream::BoxStream;
 pub(crate) use roseui_common::{AgentKillReason, ConversationStatus, TimestampMs, now_ms};
 pub(crate) use roseui_session::{
     BackendError, Command, CommandMeta, ContentBlock, SessionBackend, SessionEnvelope, SessionEvent, ToolResultContent,
 };
-pub(crate) use futures_util::stream::BoxStream;
 pub(crate) use tokio::sync::broadcast;
 
 pub(crate) use crate::agent_task::IAgentTask;
@@ -42,7 +42,6 @@ pub(crate) use roseui_api_types::AcpBuildExtra;
 pub(crate) use roseui_common::AgentType;
 pub(crate) use roseui_db::{IAcpSessionRepository, IMcpServerRepository, SaveRuntimeStateParams};
 pub(crate) use roseui_realtime::EventBroadcaster;
-
 
 /// One claude/codex session, presented as an `IAgentTask`.
 pub struct SessionAgentTask {
@@ -684,7 +683,11 @@ impl SessionAgentTask {
         let wait = timeout(Duration::from_secs(5), async {
             use futures_util::StreamExt;
             while let Some(env) = events.next().await {
-                if let roseui_session::SessionEvent::SessionInfo { context_usage: Some(usage), .. } = env.event {
+                if let roseui_session::SessionEvent::SessionInfo {
+                    context_usage: Some(usage),
+                    ..
+                } = env.event
+                {
                     return Some(usage);
                 }
             }
@@ -2068,10 +2071,10 @@ mod persist_tests {
     // `deriveSelectOption(..., 'thought_level', ['reasoning_effort'])` found nothing and the
     // top-right selector never showed a thinking/effort group even though claude advertises
     // it and the backend can set it.
+    use futures_util::stream::BoxStream;
     use roseui_session::{
         Admission, BackendError, Capabilities, Command, CommandReceipt, SessionBackend, SessionEnvelope,
     };
-    use futures_util::stream::BoxStream;
 
     struct EffortCapsBackend;
 
@@ -2407,10 +2410,10 @@ mod pump_tests {
     //! (Start emitted by send_message before dispatch; opening ConfigChanged
     //! suppressed; Finish carries the CLI session id learned from BackendBound).
     use super::*;
+    use futures_util::stream::BoxStream;
     use roseui_session::{
         Admission, BackendError, Capabilities, Command, CommandReceipt, SessionBackend, SessionEnvelope, SessionEvent,
     };
-    use futures_util::stream::BoxStream;
 
     /// Emits a fixed script on `events()`; `dispatch(Send)` admits a turn.
     struct ScriptBackend(Vec<SessionEnvelope>);
@@ -3636,11 +3639,11 @@ mod force_kill_tests {
     use super::*;
     use crate::agent_task::{AgentInstance, IAgentTask};
     use crate::types::SendMessageData;
+    use futures_util::stream::BoxStream;
     use roseui_common::{AgentKillReason, ConversationStatus};
     use roseui_session::{
         Admission, BackendError, Capabilities, Command, CommandReceipt, SessionBackend, SessionEnvelope,
     };
-    use futures_util::stream::BoxStream;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     /// A backend whose `events()` NEVER terminates (the turn stays in flight —

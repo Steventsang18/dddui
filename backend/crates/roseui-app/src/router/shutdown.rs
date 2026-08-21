@@ -52,7 +52,9 @@ pub(super) async fn shutdown(headers: axum::http::HeaderMap) -> impl IntoRespons
 
     (
         StatusCode::OK,
-        axum::Json(ShutdownResponse { status: "shutting_down" }),
+        axum::Json(ShutdownResponse {
+            status: "shutting_down",
+        }),
     )
         .into_response()
 }

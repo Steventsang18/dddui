@@ -444,6 +444,20 @@ async fn t6_3_status_authenticated() {
 }
 
 #[tokio::test]
+async fn t6_5_local_mode_never_needs_setup() {
+    // --local 模式（桌面壳）没有账号初始化环节，即使没有任何凭据化的用户，
+    // needs_setup 也恒为 false，避免前端落入首启设置/登录流程。
+    let (app, _ctx) = test_app_with_local(true).await;
+
+    let req = get_anonymous("/api/auth/status");
+    let resp = app.oneshot(req).await.unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = body_json(resp).await;
+    assert_eq!(json["needs_setup"], false);
+}
+
+#[tokio::test]
 async fn t6_4_status_unauthenticated() {
     let (app, _ctx) = test_app().await;
 

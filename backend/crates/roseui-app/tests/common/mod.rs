@@ -15,7 +15,26 @@ use roseui_system::VersionCheckService;
 
 pub async fn build_app() -> (axum::Router, AppServices) {
     let db = roseui_db::init_database_memory().await.unwrap();
-    let services = AppServices::from_config(db, &AppConfig::default()).await.unwrap();
+    let services = AppServices::from_config(db, &webui_config()).await.unwrap();
+    let router = create_router(&services).await.expect("build router");
+    (router, services)
+}
+
+/// WebUi 模式配置（auth/CSRF 严格生效）。
+pub fn webui_config() -> AppConfig {
+    AppConfig {
+        identity_mode: roseui_app::IdentityMode::WebUi,
+        ..AppConfig::default()
+    }
+}
+
+/// 非 local（WebUi）模式的 app：auth/CSRF 严格生效。
+///
+/// 默认 Owner 模式会跳过 JWT 校验并注入 `system_default_user`，依赖
+/// `setup_and_login`（需 CSRF cookie）的 E2E 必须用本构建。
+pub async fn build_app_webui() -> (axum::Router, AppServices) {
+    let db = roseui_db::init_database_memory().await.unwrap();
+    let services = AppServices::from_config(db, &webui_config()).await.unwrap();
     let router = create_router(&services).await.expect("build router");
     (router, services)
 }
@@ -34,7 +53,7 @@ pub async fn build_app_with_skill_paths(root: &std::path::Path) -> (axum::Router
     let config = AppConfig {
         data_dir: root.to_path_buf(),
         work_dir: root.to_path_buf(),
-        ..Default::default()
+        ..webui_config()
     };
     let services = AppServices::from_config(db, &config).await.unwrap();
     sqlx::query("DELETE FROM skill_import_records")
@@ -94,7 +113,7 @@ pub async fn sync_skill_catalog_for_test(services: &AppServices, paths: &SkillPa
 
 pub async fn build_app_with_noop_opener() -> (axum::Router, AppServices) {
     let db = roseui_db::init_database_memory().await.unwrap();
-    let services = AppServices::from_config(db, &AppConfig::default()).await.unwrap();
+    let services = AppServices::from_config(db, &webui_config()).await.unwrap();
     let (mut states, _) = build_module_states(&services).await.expect("build module states");
     states.shell.shell_service = std::sync::Arc::new(roseui_shell::ShellService::new(std::sync::Arc::new(
         roseui_shell::NoopSystemOpener,
@@ -105,7 +124,7 @@ pub async fn build_app_with_noop_opener() -> (axum::Router, AppServices) {
 
 pub async fn build_app_with_file_roots(allowed_roots: Vec<std::path::PathBuf>) -> (axum::Router, AppServices) {
     let db = roseui_db::init_database_memory().await.unwrap();
-    let services = AppServices::from_config(db, &AppConfig::default()).await.unwrap();
+    let services = AppServices::from_config(db, &webui_config()).await.unwrap();
     let (mut states, _) = build_module_states(&services).await.expect("build module states");
     states.file.file_service = std::sync::Arc::new(FileService::new(services.event_bus.clone(), allowed_roots));
     let router = create_router_with_states(&services, states);
@@ -117,7 +136,7 @@ pub async fn build_app_with_mock_version(
     mock_server: &MockServer,
 ) -> (axum::Router, AppServices) {
     let db = roseui_db::init_database_memory().await.unwrap();
-    let services = AppServices::from_config(db, &AppConfig::default()).await.unwrap();
+    let services = AppServices::from_config(db, &webui_config()).await.unwrap();
     let (mut states, _) = build_module_states(&services).await.expect("build module states");
     states.system.version_check_service =
         VersionCheckService::with_api_base(reqwest::Client::new(), current_version.to_owned(), mock_server.uri());
@@ -130,6 +149,15 @@ pub async fn build_app_with_mock_version(
 /// Use for tests that exercise runtime preparation paths (team ensure_session,
 /// send_message) where spawning a real CLI process is not feasible.
 pub async fn build_app_with_mock_agents() -> (axum::Router, AppServices) {
+    build_app_with_mock_agents_for_config(webui_config()).await
+}
+
+/// Same as [`build_app_with_mock_agents`], but with an explicit app config.
+///
+/// Tests that assert auth/CSRF behavior (e.g. ACP config-options E2E) must pass
+/// a non-local mode (e.g. `IdentityMode::WebUi`); the default Owner mode skips
+/// JWT verification and injects `system_default_user`, so 401 assertions fail.
+pub async fn build_app_with_mock_agents_for_config(config: AppConfig) -> (axum::Router, AppServices) {
     let db = roseui_db::init_database_memory().await.unwrap();
     let factory: std::sync::Arc<
         dyn Fn(
@@ -147,7 +175,7 @@ pub async fn build_app_with_mock_agents() -> (axum::Router, AppServices) {
     });
     let wtm: std::sync::Arc<dyn roseui_ai_agent::IWorkerTaskManager> =
         std::sync::Arc::new(WorkerTaskManagerImpl::new(factory));
-    let services = AppServices::from_config(db, &AppConfig::default())
+    let services = AppServices::from_config(db, &config)
         .await
         .unwrap()
         .with_worker_task_manager(wtm);

@@ -12,6 +12,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use futures_util::stream::BoxStream;
 use roseui_ai_agent::{AgentInstance, agent_task::IAgentTask, session_agent::SessionAgentTask};
 use roseui_api_types::ConversationRuntimeStateKind;
 use roseui_common::{AgentKillReason, AgentType, now_ms};
@@ -22,7 +23,6 @@ use roseui_conversation::{
 use roseui_db::{IConversationRepository, SqliteConversationRepository, init_database_memory, models::ConversationRow};
 use roseui_realtime::BroadcastEventBus;
 use roseui_session::{Admission, BackendError, Capabilities, Command, CommandReceipt, SessionBackend, SessionEnvelope};
-use futures_util::stream::BoxStream;
 
 /// A `SessionBackend` whose turn NEVER terminates on its own (`events()` is a
 /// pending stream): only a force-kill's injected clean `Finish` can converge it.

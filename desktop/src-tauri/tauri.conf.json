@@ -1,0 +1,26 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "DoDidDoneUi",
+  "version": "0.1.0",
+  "identifier": "com.dodiddoneui.desktop",
+  "build": {
+    "beforeDevCommand": "npm --prefix ../frontend run dev",
+    "devUrl": "http://127.0.0.1:5173",
+    "frontendDist": "../../frontend/packages/desktop/src/renderer/dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": "default-src 'self' ipc: http://ipc.localhost; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data: blob: http://127.0.0.1:*; connect-src ipc: http://ipc.localhost http://127.0.0.1:* ws://127.0.0.1:*; font-src 'self' data: blob:; worker-src 'self' blob:; media-src 'self' blob: http://127.0.0.1:*"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg"],
+    "icon": ["icons/icon.png", "icons/icon.icns"],
+    "externalBin": ["binaries/dodiddoneui"],
+    "macOS": {
+      "minimumSystemVersion": "13.0"
+    }
+  }
+}

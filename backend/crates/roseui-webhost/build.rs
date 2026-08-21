@@ -20,9 +20,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 fn main() {
-    let manifest_dir = PathBuf::from(
-        std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set by cargo"),
-    );
+    let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set by cargo"));
     let assets_dir = manifest_dir.join("assets");
 
     // 0) CI 静态检查模式：跳过前端内嵌，不 panic，不覆盖已有 assets
@@ -46,7 +44,10 @@ fn main() {
         if p.exists() {
             Some(p)
         } else {
-            println!("cargo:warning=ROSEUI_FRONTEND_DIST={} does not exist, ignoring", p.display());
+            println!(
+                "cargo:warning=ROSEUI_FRONTEND_DIST={} does not exist, ignoring",
+                p.display()
+            );
             None
         }
     } else {
@@ -73,8 +74,10 @@ fn main() {
             println!("cargo:rerun-if-changed={}", dist.join("index.html").display());
         }
         None => {
-            let assets_has_content =
-                assets_dir.exists() && fs::read_dir(&assets_dir).map(|mut it| it.next().is_some()).unwrap_or(false);
+            let assets_has_content = assets_dir.exists()
+                && fs::read_dir(&assets_dir)
+                    .map(|mut it| it.next().is_some())
+                    .unwrap_or(false);
             if assets_has_content {
                 println!(
                     "cargo:warning=frontend dist not found; keeping existing assets/ (stale frontend may be embedded)"

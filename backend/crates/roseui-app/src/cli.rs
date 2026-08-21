@@ -649,7 +649,9 @@ mod tests {
     use clap::Parser;
     use clap::error::ErrorKind;
 
-    use super::{Cli, Command, ConfigArgs, ConfigCommand, ManagedResourcesModeArg, MigrateArgs, PrepareManagedResourcesArgs};
+    use super::{
+        Cli, Command, ConfigArgs, ConfigCommand, ManagedResourcesModeArg, MigrateArgs, PrepareManagedResourcesArgs,
+    };
 
     #[test]
     fn long_version_flag_uses_workspace_package_version() {

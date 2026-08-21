@@ -17,7 +17,8 @@ use roseui_auth::CurrentUser;
 use roseui_common::encrypt_string;
 use roseui_db::{
     CreateProviderParams, IProviderRepository, SqliteClientPreferenceRepository, SqliteFeedbackDiagnosticsRepository,
-    SqliteProviderRepository, SqliteSettingsRepository, UserStatus, UserType, init_database_memory,
+    SqliteIndustryTemplateRepository, SqliteProviderRepository, SqliteSettingsRepository, UserStatus, UserType,
+    init_database_memory,
 };
 use roseui_realtime::BroadcastEventBus;
 use roseui_system::{
@@ -46,6 +47,7 @@ fn build_state(db: &roseui_db::Database) -> SystemRouterState {
         feedback_diagnostics_service: FeedbackDiagnosticsService::new(Arc::new(
             SqliteFeedbackDiagnosticsRepository::new(db.pool().clone()),
         )),
+        industry_template_repo: Arc::new(SqliteIndustryTemplateRepository::new(db.pool().clone())),
     }
 }
 

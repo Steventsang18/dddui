@@ -10,8 +10,8 @@ use roseui_ai_agent::agent_task::{AgentInstance, IAgentTask, IMockAgent};
 use roseui_ai_agent::protocol::events::tool_call::{ToolCallEventData, ToolCallStatus};
 use roseui_ai_agent::protocol::events::{AgentStreamEvent, ErrorEventData, FinishEventData, TextEventData};
 use roseui_ai_agent::types::{
-    ROSEUI_BASE_URL_ENV, ROSEUI_HELPER_BIN_ENV, ROSEUI_RUNTIME_TOKEN_ENV, BuildTaskOptions,
-    CONVERSATION_RUNTIME_CONTEXT_VERSION, SendMessageData,
+    BuildTaskOptions, CONVERSATION_RUNTIME_CONTEXT_VERSION, ROSEUI_BASE_URL_ENV, ROSEUI_HELPER_BIN_ENV,
+    ROSEUI_RUNTIME_TOKEN_ENV, SendMessageData,
 };
 use roseui_ai_agent::{
     AcpError, AgentAvailabilityFeedbackPort, AgentError, AgentSendError, AgentSessionKind, IWorkerTaskManager,

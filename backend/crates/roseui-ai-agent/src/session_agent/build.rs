@@ -411,7 +411,10 @@ pub(crate) fn assemble_spawn_env(
 /// `SessionConfig` has no `Serialize`, so fields are mapped by hand. Contents
 /// are RAW (dev-only, `--dump-prompts`): secrets in `spawn_env` / MCP env are
 /// not redacted, matching the existing acp dump.
-pub(crate) fn build_session_cli_config_dump_value(backend: &str, cfg: &roseui_session::SessionConfig) -> serde_json::Value {
+pub(crate) fn build_session_cli_config_dump_value(
+    backend: &str,
+    cfg: &roseui_session::SessionConfig,
+) -> serde_json::Value {
     use roseui_session::McpTransport;
     let mcp_servers: Vec<serde_json::Value> = cfg
         .init
@@ -531,4 +534,3 @@ pub(crate) fn wiki_mcp_server_spec(cfg: &roseui_api_types::WikiMcpStdioConfig) -
         },
     }
 }
-

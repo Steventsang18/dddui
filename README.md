@@ -1,6 +1,6 @@
 # DoDidDoneUi — 本地垂直行业 Agent 平台
 
-> 本地化、垂直行业向的 Agent 编排平台，单 Rust 二进制 + 浏览器，数据不出本机。基于 Apache-2.0 许可的上游开源代码修改而来（署名见许可证章节）。
+> 本地化、垂直行业向的 Agent 编排平台，桌面 App（Tauri）/ 单 Rust 二进制 + 浏览器双形态，数据不出本机。基于 Apache-2.0 许可的上游开源代码修改而来（署名见许可证章节）。
 
 📘 英文版文档：[`README.en.md`](./README.en.md)
 
@@ -8,15 +8,15 @@
 
 本项目**不是通用型 AI 聊天平台**，而是面向**特定垂直行业**（法律、教育、医疗、金融等）的本地化 Agent 解决方案。核心特征：
 
-- **数据不出本机**：单一 Rust 二进制，浏览器访问，无云端依赖（模型 API 除外，由用户自备 Key）
+- **数据不出本机**：后端完全运行在本机，无云端依赖（模型 API 除外，由用户自备 Key）
 - **垂直行业适配**：针对细分市场的领域知识库、工作流、合规要求做定向优化
-- **本地优先**：纯 Web 形态，无桌面客户端，单人即可部署
+- **本地优先**：桌面 App 与 Web 双形态，单人即可部署
 
 ## 为什么选 DoDidDoneUi？
 
-- **数据不出本机**：单个 Rust 二进制直接在浏览器里跑完整应用，没有云后端（除你用自己的 Key 连接的模型 API）。
+- **数据不出本机**：应用完全跑在你的机器上，没有云后端（除你用自己的 Key 连接的模型 API）。
 - **垂直行业就绪**：领域知识库、工作流与合规护栏是为特定市场调优的，而非"通用聊天"一刀切。
-- **本地优先、零桌面客户端**：纯 Web 形态——不依赖 Tauri、不依赖 Electron、不打包 `.exe`/`.dmg` 安装包。一个人用笔记本就能部署。
+- **本地优先、双形态**：桌面 App（Tauri 壳 + 本机后端 sidecar，产物 `.app`/`.dmg`）开箱即用；也可以只跑单个 Rust 二进制用浏览器访问。一个人用笔记本就能部署。
 
 ## 功能详介
 
@@ -45,12 +45,29 @@
 ### 👥 团队（规划中）
 团队协作层在规划中。当前单主控模式下打开即用，无登录墙。
 
-### 📦 单二进制、免客户端
-React 前端在编译期经 `rust-embed` 嵌入 Rust 二进制，运行期同源托管。无需独立 Web 服务器、无需桌面客户端、无需额外目录。
+### 📦 单二进制，前端内嵌
+React 前端在编译期经 `rust-embed` 嵌入 Rust 二进制，运行期同源托管。无需独立 Web 服务器、无需额外目录。
 
 ## 快速开始
 
-### 方式 A — 直接运行（推荐大多数用户）
+### 方式 A — 桌面 App（推荐）
+
+macOS 原生窗口体验：Tauri 壳负责窗口/托盘，后端作为 sidecar 随 App 启动与退出，数据目录独立（`~/Library/Application Support/com.dodiddoneui.desktop`）。
+
+```bash
+# 全量构建，产出 .app / .dmg
+./desktop/build.sh
+#    产物：desktop/src-tauri/target/release/bundle/{macos,dmg}/
+
+# 增量构建可跳过已完成的部分
+./desktop/build.sh --skip-backend   # 复用已有后端二进制
+./desktop/build.sh --skip-frontend  # 复用已有前端 dist
+./desktop/build.sh --dev            # 开发模式（tauri dev + vite HMR）
+```
+
+把 `DoDidDoneUi.app` 拖进 Applications 即可使用。详见 [`desktop/README.md`](./desktop/README.md)。
+
+### 方式 B — 单二进制 + 浏览器
 
 想要一个前端已内嵌的生产形态单二进制：
 
@@ -70,7 +87,7 @@ React 前端在编译期经 `rust-embed` 嵌入 Rust 二进制，运行期同源
 
 > **首次配置**：在能聊天或使用 Agent 之前，请到 **设置 → 模型** 配置一个国产主流大模型（如 DeepSeek）并粘贴你的 API Key。配置后对话 / Agent 功能即会启用。
 
-### 方式 B — 开发模式（热更新）
+### 方式 C — 开发模式（热更新）
 
 如果你是开发者，想在改前端时实时刷新：
 
@@ -83,9 +100,9 @@ cd frontend && npm install && npm run dev
 #    浏览器打开 http://127.0.0.1:5173
 ```
 
-> 首次模型配置同方式 A：先在 **设置 → 模型** 配置模型，再使用对话 / Agent 功能。
+> 首次模型配置同方式 B：先在 **设置 → 模型** 配置模型，再使用对话 / Agent 功能。
 
-### 方式 C — 伺服已构建的前端目录（高级）
+### 方式 D — 伺服已构建的前端目录（高级）
 
 如果你已有前端 `dist`，想跳过内嵌副本：
 
@@ -101,7 +118,9 @@ dodiddoneui (单 Rust 二进制)
  ├─ 26 个业务 crate（Agent/MCP/对话/文件/Office/Team/定时任务/Wiki...）
  └─ roseui-wiki      垂直行业知识库（FTS5 全文检索 + 双链 + typed edges）
 
-浏览器 ←→ REST /api/* + WebSocket /ws  ←→ dodiddoneui（同源）
+桌面形态：DoDidDoneUi.app (Tauri 壳) ─ sidecar 拉起 ─→ dodiddoneui --local
+Web  形态：浏览器 ←→ REST /api/* + WebSocket /ws ←→ dodiddoneui（同源）
+两种形态共用同一个后端与同一套 REST/WS 协议。
 ```
 
 ## 许可与来源

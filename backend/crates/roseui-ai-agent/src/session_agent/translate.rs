@@ -91,7 +91,11 @@ pub(crate) fn empty_turn_tip(outcome: &roseui_session::TurnOutcome) -> Option<Ti
 /// `terminal_result_seen`: did the current turn already reach a terminal
 /// `TurnResult`? Only consulted for `Detached` — it lets this stateless pub(crate) fn /// replicate the reducer's `crash_outcome` guard (a Detached AFTER the turn's
 /// result is an absorbed teardown, not a crash). Immaterial for every other arm.
-pub(crate) fn translate_event(event: SessionEvent, conversation_id: &str, terminal_result_seen: bool) -> Vec<AgentStreamEvent> {
+pub(crate) fn translate_event(
+    event: SessionEvent,
+    conversation_id: &str,
+    terminal_result_seen: bool,
+) -> Vec<AgentStreamEvent> {
     match event {
         // NOTE: the Start lifecycle frame is emitted by `send_message` (before
         // dispatch), mirroring the ACP path which emits Start right before prompt().

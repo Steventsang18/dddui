@@ -15,7 +15,7 @@ import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import { useNavigationHistory } from '@/renderer/hooks/context/NavigationHistoryContext';
 import { useFeedback } from '@/renderer/hooks/context/FeedbackContext';
 import { resolveFeedbackModule } from '@/renderer/services/feedback/resolveFeedbackModule';
-import { isElectronDesktop, isMacOS } from '@/renderer/utils/platform';
+import { isDesktopShell, isElectronDesktop, isMacOS, isTauriDesktop } from '@/renderer/utils/platform';
 import './titlebar.css';
 
 interface TitlebarProps {
@@ -127,10 +127,11 @@ const Titlebar: React.FC<TitlebarProps> = ({ workspaceAvailable }) => {
     };
   }, []);
 
-  const isDesktopRuntime = isElectronDesktop();
+  const isDesktopRuntime = isDesktopShell();
   const isMacRuntime = isDesktopRuntime && isMacOS();
-  // Windows/Linux 显示自定义窗口按钮；macOS 在标题栏给工作区一个切换入口
-  const showWindowControls = isDesktopRuntime && !isMacRuntime;
+  // Windows/Linux 显示自定义窗口按钮；macOS 在标题栏给工作区一个切换入口。
+  // WindowControls 依赖 Electron IPC，Tauri 壳（一期 macOS）用原生红绿灯。
+  const showWindowControls = isElectronDesktop() && !isMacRuntime;
   // WebUI 和 macOS 桌面都需要在标题栏放工作区开关
   const showWorkspaceButton = workspaceAvailable && (!isDesktopRuntime || isMacRuntime);
 
@@ -310,6 +311,8 @@ const Titlebar: React.FC<TitlebarProps> = ({ workspaceAvailable }) => {
         'app-titlebar--mac': isMacRuntime,
       })}
     >
+      {/* Tauri 窗口拖拽区：铺满标题栏底层，按钮在其上层，空白区命中拖拽 */}
+      {isTauriDesktop() && !layout?.isMobile && <div className='app-titlebar__drag-region' data-tauri-drag-region aria-hidden='true' />}
       <div ref={menuRef} className='app-titlebar__menu' style={menuStyle}>
         {showBackToChatButton && (
           <button

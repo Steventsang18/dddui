@@ -669,7 +669,10 @@ impl SlotWorkCoordinator {
     /// and returns the run id plus the initial set of ready nodes. The caller
     /// (session layer) is responsible for actually enqueuing each ready node as
     /// a real mailbox message — the coordinator only performs pure scheduling.
-    pub(crate) fn start_dag(&self, def: super::dag::WorkflowDef) -> Result<(String, Vec<DagReadyNode>), super::dag::DagError> {
+    pub(crate) fn start_dag(
+        &self,
+        def: super::dag::WorkflowDef,
+    ) -> Result<(String, Vec<DagReadyNode>), super::dag::DagError> {
         // Validate first (cycle/dependency check); the planned order is recomputed
         // from `def` inside `pump_dag` via each node's `depends_on`, so we only
         // need the validation side effect here.
@@ -701,7 +704,9 @@ impl SlotWorkCoordinator {
         let mut ready = Vec::new();
         loop {
             let mut state = self.lock_state();
-            let Some(run) = state.dag_runs.get(run_id) else { return ready };
+            let Some(run) = state.dag_runs.get(run_id) else {
+                return ready;
+            };
             // Find a node ready to dispatch: not started, not failed, and all
             // deps completed.
             let next: Option<super::dag::WorkflowNode> = run
@@ -716,12 +721,7 @@ impl SlotWorkCoordinator {
                 .cloned();
             let Some(node) = next else { return ready };
             // Mark started before dropping the lock to avoid double-dispatch.
-            state
-                .dag_runs
-                .get_mut(run_id)
-                .unwrap()
-                .started
-                .insert(node.id.clone());
+            state.dag_runs.get_mut(run_id).unwrap().started.insert(node.id.clone());
             drop(state);
             ready.push(DagReadyNode {
                 run_id: run_id.to_owned(),
@@ -791,7 +791,11 @@ impl SlotWorkCoordinator {
     /// Fail a batch and advance any affected DAG runs, returning the newly ready
     /// successor nodes (a failed node does not unblock dependents, but the run
     /// bookkeeping still advances).
-    pub(crate) fn fail_dag_batch(&self, batch: &WorkBatch, classification: &'static str) -> (CommitResult, Vec<DagReadyNode>) {
+    pub(crate) fn fail_dag_batch(
+        &self,
+        batch: &WorkBatch,
+        classification: &'static str,
+    ) -> (CommitResult, Vec<DagReadyNode>) {
         let r = self.terminalize_batch(batch, WorkIntentState::Failed { classification }, classification);
         let ready = self.on_batch_terminal(batch, false);
         (r, ready)

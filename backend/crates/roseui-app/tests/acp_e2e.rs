@@ -14,7 +14,7 @@ use roseui_db::{
     UpsertAgentMetadataParams,
 };
 
-use common::{body_json, build_app, get_with_token, json_with_token, setup_and_login};
+use common::{body_json, build_app_webui, get_with_token, json_with_token, setup_and_login};
 
 async fn user_id_for_username(services: &roseui_app::AppServices, username: &str) -> String {
     services
@@ -30,7 +30,7 @@ async fn user_id_for_username(services: &roseui_app::AppServices, username: &str
 
 #[tokio::test]
 async fn management_list_returns_array() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, _csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
 
     let req = get_with_token("/api/agents/management", &token);
@@ -46,7 +46,7 @@ async fn management_list_returns_array() {
 
 #[tokio::test]
 async fn legacy_refresh_agents_endpoint_is_not_found() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
 
     let req = json_with_token("POST", "/api/agents/refresh", json!({}), &token, &csrf);
@@ -56,7 +56,7 @@ async fn legacy_refresh_agents_endpoint_is_not_found() {
 
 #[tokio::test]
 async fn test_custom_agent_nonexistent_command() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
 
     // Endpoint was renamed from /api/agents/test to /api/agents/custom/try-connect
@@ -79,7 +79,7 @@ async fn test_custom_agent_nonexistent_command() {
 
 #[tokio::test]
 async fn management_list_includes_missing_custom_agents() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, _csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
     let user_id = user_id_for_username(&services, "user1").await;
 
@@ -134,7 +134,7 @@ async fn management_list_includes_missing_custom_agents() {
 
 #[tokio::test]
 async fn management_list_marks_rows_with_unavailable_snapshot() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, _csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
     let user_id = user_id_for_username(&services, "user1").await;
 
@@ -205,7 +205,7 @@ async fn management_list_marks_rows_with_unavailable_snapshot() {
 
 #[tokio::test]
 async fn legacy_agents_endpoint_is_not_found() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, _csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
 
     let req = get_with_token("/api/agents", &token);
@@ -215,7 +215,7 @@ async fn legacy_agents_endpoint_is_not_found() {
 
 #[tokio::test]
 async fn health_check_by_id_returns_missing_status_for_uninstalled_agent() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
     let user_id = user_id_for_username(&services, "user1").await;
 
@@ -274,7 +274,7 @@ async fn health_check_by_id_returns_missing_status_for_uninstalled_agent() {
 
 #[tokio::test]
 async fn get_mode_no_active_task() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, _csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
 
     let req = get_with_token("/api/conversations/nonexistent/mode", &token);
@@ -284,7 +284,7 @@ async fn get_mode_no_active_task() {
 
 #[tokio::test]
 async fn set_mode_no_active_task() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
 
     let req = json_with_token(
@@ -300,7 +300,7 @@ async fn set_mode_no_active_task() {
 
 #[tokio::test]
 async fn get_model_no_active_task() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, _csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
 
     let req = get_with_token("/api/conversations/nonexistent/model", &token);
@@ -310,7 +310,7 @@ async fn get_model_no_active_task() {
 
 #[tokio::test]
 async fn set_model_no_active_task() {
-    let (mut app, services) = build_app().await;
+    let (mut app, services) = build_app_webui().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
 
     let req = json_with_token(

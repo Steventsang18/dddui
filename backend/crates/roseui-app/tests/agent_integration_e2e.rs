@@ -13,6 +13,7 @@ use serde_json::{Value, json};
 use tokio::sync::broadcast;
 use tower::ServiceExt;
 
+use async_trait::async_trait;
 use roseui_ai_agent::agent_task::{AgentInstance, IAgentTask, IMockAgent};
 use roseui_ai_agent::protocol::events::TextEventData;
 use roseui_ai_agent::types::{BuildTaskOptions, SendMessageData};
@@ -20,9 +21,8 @@ use roseui_ai_agent::{AgentError, AgentStreamEvent, IWorkerTaskManager};
 use roseui_api_types::AgentSource;
 use roseui_common::{AgentKillReason, AgentType, Confirmation, ConversationStatus, TimestampMs, now_ms};
 use roseui_db::UpsertAgentMetadataParams;
-use async_trait::async_trait;
 
-use common::{body_json, get_with_token, json_with_token, setup_and_login};
+use common::{body_json, get_with_token, json_with_token, setup_and_login, webui_config};
 
 // ── Mock Agent ──────────────────────────────────────────────────
 
@@ -190,9 +190,7 @@ impl IWorkerTaskManager for MockTaskManager {
 
 async fn build_app_with_mock_tasks() -> (axum::Router, roseui_app::AppServices, Arc<MockTaskManager>) {
     let db = roseui_db::init_database_memory().await.unwrap();
-    let services = roseui_app::AppServices::from_config(db, &roseui_app::AppConfig::default())
-        .await
-        .unwrap();
+    let services = roseui_app::AppServices::from_config(db, &webui_config()).await.unwrap();
 
     let mock_tm = Arc::new(MockTaskManager::new());
     let services = services.with_worker_task_manager(mock_tm.clone());

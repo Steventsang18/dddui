@@ -8,18 +8,18 @@
 
 use std::sync::Arc;
 
-use roseui_realtime::BroadcastEventBus;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
+use roseui_realtime::BroadcastEventBus;
 use serde_json::json;
 use tower::ServiceExt;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use roseui_db::{
-    SqliteClientPreferenceRepository, SqliteFeedbackDiagnosticsRepository, SqliteProviderRepository,
-    SqliteSettingsRepository, init_database_memory,
+    SqliteClientPreferenceRepository, SqliteFeedbackDiagnosticsRepository, SqliteIndustryTemplateRepository,
+    SqliteProviderRepository, SqliteSettingsRepository, init_database_memory,
 };
 use roseui_system::{
     ClientPrefService, FeedbackDiagnosticsService, ModelFetchService, ProtocolDetectionService, ProviderService,
@@ -46,6 +46,7 @@ fn build_state(db: &roseui_db::Database, version_check_service: VersionCheckServ
         feedback_diagnostics_service: FeedbackDiagnosticsService::new(Arc::new(
             SqliteFeedbackDiagnosticsRepository::new(db.pool().clone()),
         )),
+        industry_template_repo: Arc::new(SqliteIndustryTemplateRepository::new(db.pool().clone())),
     }
 }
 
@@ -169,7 +170,7 @@ async fn test_system_info_snake_case_keys() {
 async fn test_check_update_has_new_version() {
     let mock_server = MockServer::start().await;
     Mock::given(method("GET"))
-        .and(path("/repos/iOfficeAI/RoseUi/releases"))
+        .and(path("/repos/Steventsang18/dddui/releases"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([
             make_github_release(
                 "v2.0.0",
@@ -207,7 +208,7 @@ async fn test_check_update_has_new_version() {
 async fn test_check_update_no_update_available() {
     let mock_server = MockServer::start().await;
     Mock::given(method("GET"))
-        .and(path("/repos/iOfficeAI/RoseUi/releases"))
+        .and(path("/repos/Steventsang18/dddui/releases"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([
             make_github_release("v1.0.0", false, false, vec![]),
             make_github_release("v0.9.0", false, false, vec![]),
@@ -231,7 +232,7 @@ async fn test_check_update_no_update_available() {
 async fn test_check_update_skips_draft() {
     let mock_server = MockServer::start().await;
     Mock::given(method("GET"))
-        .and(path("/repos/iOfficeAI/RoseUi/releases"))
+        .and(path("/repos/Steventsang18/dddui/releases"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([
             make_github_release("v5.0.0", true, false, vec![]), // draft — skip
             make_github_release("v2.0.0", false, false, vec![]),
@@ -255,7 +256,7 @@ async fn test_check_update_skips_draft() {
 async fn test_check_update_skips_prerelease_by_default() {
     let mock_server = MockServer::start().await;
     Mock::given(method("GET"))
-        .and(path("/repos/iOfficeAI/RoseUi/releases"))
+        .and(path("/repos/Steventsang18/dddui/releases"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([
             make_github_release("v3.0.0-beta.1", false, true, vec![]),
             make_github_release("v2.0.0", false, false, vec![]),
@@ -282,7 +283,7 @@ async fn test_check_update_skips_prerelease_by_default() {
 async fn test_check_update_includes_prerelease_when_requested() {
     let mock_server = MockServer::start().await;
     Mock::given(method("GET"))
-        .and(path("/repos/iOfficeAI/RoseUi/releases"))
+        .and(path("/repos/Steventsang18/dddui/releases"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([
             make_github_release("v3.0.0-beta.1", false, true, vec![]),
             make_github_release("v2.0.0", false, false, vec![]),
@@ -309,7 +310,7 @@ async fn test_check_update_includes_prerelease_when_requested() {
 async fn test_check_update_recommended_asset_matches_platform() {
     let mock_server = MockServer::start().await;
     Mock::given(method("GET"))
-        .and(path("/repos/iOfficeAI/RoseUi/releases"))
+        .and(path("/repos/Steventsang18/dddui/releases"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([make_github_release(
             "v2.0.0",
             false,
@@ -347,7 +348,7 @@ async fn test_check_update_recommended_asset_matches_platform() {
 async fn test_check_update_github_api_error() {
     let mock_server = MockServer::start().await;
     Mock::given(method("GET"))
-        .and(path("/repos/iOfficeAI/RoseUi/releases"))
+        .and(path("/repos/Steventsang18/dddui/releases"))
         .respond_with(ResponseTemplate::new(500).set_body_string("Internal Server Error"))
         .mount(&mock_server)
         .await;
@@ -367,7 +368,7 @@ async fn test_check_update_github_api_error() {
 async fn test_check_update_empty_releases() {
     let mock_server = MockServer::start().await;
     Mock::given(method("GET"))
-        .and(path("/repos/iOfficeAI/RoseUi/releases"))
+        .and(path("/repos/Steventsang18/dddui/releases"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
         .mount(&mock_server)
         .await;
@@ -417,7 +418,7 @@ async fn test_check_update_custom_repo() {
 async fn test_check_update_invalid_tag_ignored() {
     let mock_server = MockServer::start().await;
     Mock::given(method("GET"))
-        .and(path("/repos/iOfficeAI/RoseUi/releases"))
+        .and(path("/repos/Steventsang18/dddui/releases"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([
             make_github_release("not-semver", false, false, vec![]),
             make_github_release("v2.0.0", false, false, vec![]),
@@ -440,7 +441,7 @@ async fn test_check_update_invalid_tag_ignored() {
 async fn test_check_update_response_format() {
     let mock_server = MockServer::start().await;
     Mock::given(method("GET"))
-        .and(path("/repos/iOfficeAI/RoseUi/releases"))
+        .and(path("/repos/Steventsang18/dddui/releases"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([make_github_release(
             "v2.0.0",
             false,
